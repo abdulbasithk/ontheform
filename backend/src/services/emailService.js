@@ -71,36 +71,51 @@ class EmailService {
     try {
       let qrCodeImage = '';
 
+      let qrCodeUrl = null;
+      
       // Generate QR code if requested
       if (showQrCode) {
         try {
           console.log('Generating QR code for submission:', submissionId);
           
-          // Generate QR code as base64 data URL for inline embedding
-          const qrCodeDataURL = await this.generateQRCodeDataURL(submissionId);
-          console.log('QR code data URL generated successfully, length:', qrCodeDataURL ? qrCodeDataURL.length : 'null');
-          
-          if (qrCodeDataURL && qrCodeDataURL.startsWith('data:image')) {
-            // Embed QR code directly in email content
-            qrCodeImage = `
-              <div style="text-align: center; margin: 20px 0;">
-                <h3 style="color: #374151; margin-bottom: 10px;">Your Submission QR Code</h3>
-                <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; display: inline-block;">
-                  <img src="${qrCodeDataURL}" alt="Submission QR Code" style="display: block; margin: 0 auto; max-width: 200px; height: auto;" />
-                </div>
-                <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Scan this QR code to access your submission: <strong>${submissionId}</strong></p>
-              </div>
-            `;
-          } else {
-            console.error('Failed to generate valid QR code data URL:', qrCodeDataURL);
-            qrCodeImage = `
-              <div style="text-align: center; margin: 20px 0;">
-                <p style="color: #ef4444; font-size: 14px;">QR code could not be generated for submission: <strong>${submissionId}</strong></p>
-              </div>
-            `;
+          // Create QR code file in uploads directory (same as banners)
+          const uploadsDir = path.join(__dirname, '../../uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
           }
+          
+          const qrCodeFileName = `qr-${submissionId}-${Date.now()}.png`;
+          const qrCodeFilePath = path.join(uploadsDir, qrCodeFileName);
+          
+          // Generate QR code and save to uploads directory
+          await QRCode.toFile(qrCodeFilePath, submissionId, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          
+          console.log('QR code file created successfully:', qrCodeFilePath);
+          
+          // Create public URL for QR code (same pattern as banners)
+          qrCodeUrl = `/api/forms/uploads/${qrCodeFileName}`;
+          const baseUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+          const absoluteQrCodeUrl = `${baseUrl}${qrCodeUrl}`;
+          
+          // Update email content to show QR code image inline
+          qrCodeImage = `
+            <div style="text-align: center; margin: 20px 0;">
+              <h3 style="color: #374151; margin-bottom: 10px;">Your Submission QR Code</h3>
+              <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; display: inline-block;">
+                <img src="${absoluteQrCodeUrl}" alt="Submission QR Code" style="display: block; margin: 0 auto; max-width: 200px; height: auto;" />
+              </div>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Scan this QR code to access your submission: <strong>${submissionId}</strong></p>
+            </div>
+          `;
         } catch (error) {
-          console.error('Error generating QR code for email:', error);
+          console.error('Error generating QR code file:', error);
           qrCodeImage = `
             <div style="text-align: center; margin: 20px 0;">
               <p style="color: #ef4444; font-size: 14px;">QR code could not be generated for submission: <strong>${submissionId}</strong></p>
@@ -164,12 +179,12 @@ class EmailService {
         </html>
       `;
 
-      // Send email using Kirim.email API with inline QR code
+      // Send email using Kirim.email API with inline QR code image
       const requestData = new URLSearchParams({
         from: 'no-reply-form@sodtix.com',
         to: recipientEmail,
         subject: `Form Submission Confirmation - ${formTitle}`,
-        html: htmlContent
+        text: htmlContent
       });
       
       const headers = {
@@ -196,6 +211,8 @@ class EmailService {
         data: response.data
       });
 
+      // QR code files are now permanent public files, no cleanup needed
+
       return {
         success: true,
         messageId: response.data.id || 'unknown',
@@ -203,7 +220,15 @@ class EmailService {
         data: response.data
       };
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error sending submission confirmation email:', {
+        error: error.message,
+        recipient: recipientEmail,
+        formTitle,
+        submissionId
+      });
+      
+      // QR code files are now permanent public files, no cleanup needed
+      
       throw error;
     }
   }
