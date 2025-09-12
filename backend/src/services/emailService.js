@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
 
+require('dotenv').config({ path: '.env' });
 // Email service configuration
 class EmailService {
   constructor() {
