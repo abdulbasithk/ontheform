@@ -1,24 +1,47 @@
-const sgMail = require('@sendgrid/mail');
+const axios = require('axios');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const FormData = require('form-data');
 
 // Email service configuration
 class EmailService {
   constructor() {
-    // Configure SendGrid
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.error('SENDGRID_API_KEY environment variable is not set');
-      throw new Error('SendGrid API key is required');
+    // Configure Kirim.email
+    const apiKey = process.env.KIRIM_EMAIL_API_KEY;
+    const secret = process.env.KIRIM_EMAIL_SECRET;
+    
+    if (!apiKey || !secret) {
+      console.error('KIRIM_EMAIL_API_KEY and KIRIM_EMAIL_SECRET environment variables are required');
+      throw new Error('Kirim.email credentials are required');
     }
     
-    sgMail.setApiKey(apiKey);
-    console.log('📧 Email service initialized with SendGrid');
+    this.apiKey = apiKey;
+    this.secret = secret;
+    console.log('📧 Email service initialized with Kirim.email');
   }
 
-  // Generate QR code as base64 data URL
-  async generateQRCode(data) {
+  // Generate QR code as buffer for email attachment
+  async generateQRCodeBuffer(data) {
+    try {
+      const qrCodeBuffer = await QRCode.toBuffer(data, {
+        type: 'png',
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      return qrCodeBuffer;
+    } catch (error) {
+      console.error('Error generating QR code buffer:', error);
+      throw error;
+    }
+  }
+
+  // Generate QR code as data URL for inline display
+  async generateQRCodeDataURL(data) {
     try {
       const qrCodeDataURL = await QRCode.toDataURL(data, {
         width: 200,
@@ -30,7 +53,7 @@ class EmailService {
       });
       return qrCodeDataURL;
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      console.error('Error generating QR code data URL:', error);
       throw error;
     }
   }
@@ -46,25 +69,30 @@ class EmailService {
 
     try {
       let qrCodeImage = '';
-      let qrCodeAttachment = null;
+      let qrCodeBuffer = null;
 
       // Generate QR code if requested
       if (showQrCode) {
         try {
           console.log('Generating QR code for submission:', submissionId);
-          const qrCodeDataURL = await this.generateQRCode(submissionId);
-          console.log('QR code generated successfully, data URL length:', qrCodeDataURL ? qrCodeDataURL.length : 'null');
           
-          if (qrCodeDataURL && qrCodeDataURL.startsWith('data:image')) {
+          // Generate QR code as buffer for attachment
+          qrCodeBuffer = await this.generateQRCodeBuffer(submissionId);
+          console.log('QR code buffer generated successfully, size:', qrCodeBuffer ? qrCodeBuffer.length : 'null');
+          
+          if (qrCodeBuffer) {
+            // Reference the attached QR code in email content
             qrCodeImage = `
               <div style="text-align: center; margin: 20px 0;">
                 <h3 style="color: #374151; margin-bottom: 10px;">Your Submission QR Code</h3>
-                <img src="${qrCodeDataURL}" alt="Submission QR Code" style="border: 1px solid #e5e7eb; border-radius: 8px; max-width: 200px;" />
-                <p style="color: #6b7280; font-size: 14px; margin-top: 10px;">Scan this QR code to access your submission: <strong>${submissionId}</strong></p>
+                <p style="color: #6b7280; font-size: 14px; margin-bottom: 10px;">Your QR code is attached to this email. Scan it to access your submission: <strong>${submissionId}</strong></p>
+                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                  <p style="color: #374151; font-size: 14px; margin: 0;">📎 QR Code attached as: <strong>submission-qr-${submissionId}.png</strong></p>
+                </div>
               </div>
             `;
           } else {
-            console.error('Invalid QR code data URL generated:', qrCodeDataURL);
+            console.error('Failed to generate QR code buffer');
             qrCodeImage = `
               <div style="text-align: center; margin: 20px 0;">
                 <p style="color: #ef4444; font-size: 14px;">QR code could not be generated for submission: <strong>${submissionId}</strong></p>
@@ -129,7 +157,6 @@ class EmailService {
 
               <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
                 <p style="color: #6b7280; font-size: 14px; margin: 0;">This is an automated confirmation email. Please keep this for your records.</p>
-                ${showQrCode ? '<p style="color: #6b7280; font-size: 14px; margin: 10px 0 0 0;">You can use the QR code above to quickly access your submission details.</p>' : ''}
               </div>
             </div>
           </div>
@@ -137,62 +164,71 @@ class EmailService {
         </html>
       `;
 
-      const textContent = `
-Form Submission Confirmation
+      // Send email using Kirim.email API
+      let requestData;
+      let headers;
+      
+      if (qrCodeBuffer) {
+        // Use FormData for emails with QR code attachment
+        const formData = new FormData();
+        
+        formData.append('from', 'no-reply-form@sodtix.com');
+        formData.append('to', recipientEmail);
+        formData.append('subject', `Form Submission Confirmation - ${formTitle}`);
+        formData.append('text', htmlContent);
+        formData.append('attachment', qrCodeBuffer, {
+          filename: `submission-qr-${submissionId}.png`,
+          contentType: 'image/png'
+        });
+        
+        requestData = formData;
+        headers = {
+          ...formData.getHeaders(),
+          'domain': 'sodtix.com'
+        };
+      } else {
+        // Use URLSearchParams for simple emails without attachments
+        requestData = new URLSearchParams({
+          from: 'no-reply-form@sodtix.com',
+          to: recipientEmail,
+          subject: `Form Submission Confirmation - ${formTitle}`,
+          html: htmlContent
+        });
+        
+        headers = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'domain': 'sodtix.com'
+        };
+      }
 
-Thank you for submitting the form: ${formTitle}
-
-Submission ID: ${submissionId}
-
-${showQrCode ? 'A QR code has been included in the HTML version of this email for easy access to your submission.' : ''}
-
-This is an automated confirmation email. Please keep this for your records.
-      `;
-
-      const mailOptions = {
-        from: {
-          email: 'no-reply-form@sodtix.com',
-          name: 'On The Form'
+      const config = {
+        method: 'post',
+        url: 'https://smtp-app.kirim.email/api/v4/transactional/message',
+        headers: headers,
+        auth: {
+          username: this.apiKey,
+          password: this.secret
         },
-        to: recipientEmail,
-        subject: `Form Submission Confirmation - ${formTitle}`,
-        text: textContent,
-        html: htmlContent
+        data: requestData
       };
 
-      const result = await sgMail.send(mailOptions);
+      const response = await axios(config);
       
-      console.log('📧 Email sent successfully via SendGrid:', {
-        statusCode: result[0].statusCode,
+      console.log('📧 Email sent successfully via Kirim.email:', {
+        status: response.status,
         recipient: recipientEmail,
-        messageId: result[0].headers['x-message-id']
+        data: response.data
       });
 
       return {
         success: true,
-        messageId: result[0].headers['x-message-id'],
-        statusCode: result[0].statusCode
+        messageId: response.data.id || 'unknown',
+        status: response.status,
+        data: response.data
       };
     } catch (error) {
       console.error('Error sending email:', error);
       throw error;
-    }
-  }
-
-  // Test email configuration
-  async testConnection() {
-    try {
-      // SendGrid doesn't have a direct verify method, but we can check if API key is set
-      const apiKey = process.env.SENDGRID_API_KEY;
-      if (!apiKey) {
-        throw new Error('SendGrid API key not configured');
-      }
-      
-      console.log('📧 SendGrid email service connection verified');
-      return true;
-    } catch (error) {
-      console.error('SendGrid email service connection failed:', error);
-      return false;
     }
   }
 }
