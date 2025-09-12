@@ -70,30 +70,29 @@ class EmailService {
 
     try {
       let qrCodeImage = '';
-      let qrCodeBuffer = null;
 
       // Generate QR code if requested
       if (showQrCode) {
         try {
           console.log('Generating QR code for submission:', submissionId);
           
-          // Generate QR code as buffer for attachment
-          qrCodeBuffer = await this.generateQRCodeBuffer(submissionId);
-          console.log('QR code buffer generated successfully, size:', qrCodeBuffer ? qrCodeBuffer.length : 'null');
+          // Generate QR code as base64 data URL for inline embedding
+          const qrCodeDataURL = await this.generateQRCodeDataURL(submissionId);
+          console.log('QR code data URL generated successfully, length:', qrCodeDataURL ? qrCodeDataURL.length : 'null');
           
-          if (qrCodeBuffer) {
-            // Reference the attached QR code in email content
+          if (qrCodeDataURL && qrCodeDataURL.startsWith('data:image')) {
+            // Embed QR code directly in email content
             qrCodeImage = `
               <div style="text-align: center; margin: 20px 0;">
                 <h3 style="color: #374151; margin-bottom: 10px;">Your Submission QR Code</h3>
-                <p style="color: #6b7280; font-size: 14px; margin-bottom: 10px;">Your QR code is attached to this email. Scan it to access your submission: <strong>${submissionId}</strong></p>
-                <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                  <p style="color: #374151; font-size: 14px; margin: 0;">📎 QR Code attached as: <strong>submission-qr-${submissionId}.png</strong></p>
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; display: inline-block;">
+                  <img src="${qrCodeDataURL}" alt="Submission QR Code" style="display: block; margin: 0 auto; max-width: 200px; height: auto;" />
                 </div>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Scan this QR code to access your submission: <strong>${submissionId}</strong></p>
               </div>
             `;
           } else {
-            console.error('Failed to generate QR code buffer');
+            console.error('Failed to generate valid QR code data URL:', qrCodeDataURL);
             qrCodeImage = `
               <div style="text-align: center; margin: 20px 0;">
                 <p style="color: #ef4444; font-size: 14px;">QR code could not be generated for submission: <strong>${submissionId}</strong></p>
@@ -165,42 +164,18 @@ class EmailService {
         </html>
       `;
 
-      // Send email using Kirim.email API
-      let requestData;
-      let headers;
+      // Send email using Kirim.email API with inline QR code
+      const requestData = new URLSearchParams({
+        from: 'no-reply-form@sodtix.com',
+        to: recipientEmail,
+        subject: `Form Submission Confirmation - ${formTitle}`,
+        html: htmlContent
+      });
       
-      if (qrCodeBuffer) {
-        // Use FormData for emails with QR code attachment
-        const formData = new FormData();
-        
-        formData.append('from', 'no-reply-form@sodtix.com');
-        formData.append('to', recipientEmail);
-        formData.append('subject', `Form Submission Confirmation - ${formTitle}`);
-        formData.append('text', htmlContent);
-        formData.append('attachment', qrCodeBuffer, {
-          filename: `submission-qr-${submissionId}.png`,
-          contentType: 'image/png'
-        });
-        
-        requestData = formData;
-        headers = {
-          ...formData.getHeaders(),
-          'domain': 'sodtix.com'
-        };
-      } else {
-        // Use URLSearchParams for simple emails without attachments
-        requestData = new URLSearchParams({
-          from: 'no-reply-form@sodtix.com',
-          to: recipientEmail,
-          subject: `Form Submission Confirmation - ${formTitle}`,
-          html: htmlContent
-        });
-        
-        headers = {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'domain': 'sodtix.com'
-        };
-      }
+      const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'domain': 'sodtix.com'
+      };
 
       const config = {
         method: 'post',
