@@ -9,7 +9,7 @@
     "build:production": "cross-env NODE_ENV=production npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build:production && scp -i Oracle.key -r ./dist/* ubuntu@168.110.215.133:/home/ubuntu/www/sodgroup.site"
+    "deploy": "npm run build:production && scp -i Oracle.key -r ./dist/* ubuntu@168.110.215.133:/home/ubuntu/www/epsonlfpinnovationday2025.com"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",

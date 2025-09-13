@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
   Settings,
   Users,
   X

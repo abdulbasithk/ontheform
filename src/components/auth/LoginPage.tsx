@@ -40,7 +40,7 @@ export function LoginPage() {
       return;
     }
 
-    const success = await login(email, password);
+    await login(email, password);
     // The error will be set by the AuthContext if login fails
     // No need to set a fallback error here as the AuthService handles it
   };

@@ -238,8 +238,6 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
         );
 
       case "select":
-        const isOtherSelected =
-          field.allow_other && value && !field.options?.includes(value);
         const showOtherInput = formData[`${field.id}_other`] === true;
         return (
           <div key={field.id} className="space-y-2">

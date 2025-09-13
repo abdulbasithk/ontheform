@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader, Trash2, X } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FormSubmission } from '../../types';
 import SubmissionsService from '../../services/submissions';
 

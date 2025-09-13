@@ -42,7 +42,6 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
   const [showSubmissionEditModal, setShowSubmissionEditModal] = useState(false);
   const [showSubmissionDeleteModal, setShowSubmissionDeleteModal] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   const limit = 10;
   
@@ -354,7 +353,6 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleEditSubmission(submission)}
-                                disabled={actionLoading === submission.id}
                                 className="text-blue-600 hover:text-blue-900 p-1 rounded"
                                 title="Edit submission"
                               >
@@ -362,7 +360,6 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
                               </button>
                               <button
                                 onClick={() => handleDeleteSubmission(submission)}
-                                disabled={actionLoading === submission.id}
                                 className="text-red-600 hover:text-red-900 p-1 rounded"
                                 title="Delete submission"
                               >
