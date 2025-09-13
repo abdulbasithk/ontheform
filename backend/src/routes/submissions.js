@@ -357,7 +357,7 @@ router.get('/form/:formId', authenticateToken, validateUUID, handleValidationErr
   const { page = 1, limit = 10, search, startDate, endDate } = req.query;
   const offset = (page - 1) * limit;
 
-  // Check if user owns the form
+  // Check if user owns the form or is super admin
   const formResult = await query(
     'SELECT id, title, created_by FROM forms WHERE id = $1',
     [formId]
@@ -370,7 +370,8 @@ router.get('/form/:formId', authenticateToken, validateUUID, handleValidationErr
     });
   }
 
-  if (formResult.rows[0].created_by !== req.user.id) {
+  // Super admins can access all forms, regular admins only their own
+  if (req.user.role !== 'super_admin' && formResult.rows[0].created_by !== req.user.id) {
     return res.status(403).json({
       error: 'You can only view submissions for your own forms',
       code: 'FORM_ACCESS_DENIED'
@@ -466,8 +467,8 @@ router.get('/:id', authenticateToken, validateUUID, handleValidationErrors, asyn
 
   const submission = result.rows[0];
 
-  // Check if user owns the form
-  if (submission.created_by !== req.user.id) {
+  // Super admins can access all submissions, regular admins only their own forms
+  if (req.user.role !== 'super_admin' && submission.created_by !== req.user.id) {
     return res.status(403).json({
       error: 'You can only view submissions for your own forms',
       code: 'SUBMISSION_ACCESS_DENIED'
@@ -510,7 +511,8 @@ router.delete('/:id', authenticateToken, validateUUID, handleValidationErrors, a
 
   const submission = submissionResult.rows[0];
 
-  if (submission.created_by !== req.user.id) {
+  // Super admins can delete all submissions, regular admins only their own forms
+  if (req.user.role !== 'super_admin' && submission.created_by !== req.user.id) {
     return res.status(403).json({
       error: 'You can only delete submissions for your own forms',
       code: 'SUBMISSION_ACCESS_DENIED'
@@ -534,7 +536,7 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
   const { formId } = req.params;
   const userId = req.user.id;
 
-  // Verify form ownership
+  // Verify form ownership or super admin access
   const formResult = await query(
     'SELECT id, title, created_by, fields FROM forms WHERE id = $1',
     [formId]
@@ -545,7 +547,8 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
   }
 
   const form = formResult.rows[0];
-  if (form.created_by !== userId) {
+  // Super admins can export all forms, regular admins only their own
+  if (req.user.role !== 'super_admin' && form.created_by !== userId) {
     throw new AppError('You can only export submissions for your own forms', 403, 'FORM_ACCESS_DENIED');
   }
 
