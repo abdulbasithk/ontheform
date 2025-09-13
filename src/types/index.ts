@@ -2,15 +2,18 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  role: 'super_admin' | 'admin';
 }
 
 export interface FormField {
   id: string;
   type: 'text' | 'email' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'number' | 'date';
   label: string;
+  secondary_label?: string;
   placeholder?: string;
   required: boolean;
   options?: string[];
+  allow_other?: boolean;
 }
 
 export interface Form {

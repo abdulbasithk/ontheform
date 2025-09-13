@@ -77,7 +77,10 @@ const validateFormResponses = async (formId, responses) => {
     // Validate select/radio options
     if ((field.type === 'select' || field.type === 'radio') && responses[field.id]) {
       if (field.options && !field.options.includes(responses[field.id])) {
-        errors.push(`${field.label} contains an invalid option`);
+        // If allow_other is true, accept any value not in predefined options
+        if (!field.allow_other) {
+          errors.push(`${field.label} contains an invalid option`);
+        }
       }
     }
 
@@ -264,9 +267,18 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, formId, search, startDate, endDate } = req.query;
   const offset = (page - 1) * limit;
 
-  let whereClause = `WHERE f.created_by = $1`;
-  let queryParams = [req.user.id];
-  let paramCount = 2;
+  // Super admin can see all submissions, regular admin only sees their own forms' submissions
+  let whereClause = '';
+  let queryParams = [];
+  let paramCount = 1;
+
+  if (req.user.role !== 'super_admin') {
+    whereClause = `WHERE f.created_by = $1`;
+    queryParams = [req.user.id];
+    paramCount = 2;
+  } else {
+    whereClause = 'WHERE 1=1';
+  }
 
   // Filter by specific form
   if (formId) {
@@ -623,6 +635,97 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
   // Write to response
   await workbook.xlsx.write(res);
   res.end();
+}));
+
+// PUT /api/submissions/:id - Update submission responses (admin only)
+router.put('/:id', authenticateToken, [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid submission ID format'),
+  body('responses')
+    .isObject()
+    .withMessage('Responses must be an object')
+], handleValidationErrors, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { responses } = req.body;
+
+  // Get submission with form info to check ownership
+  const submissionResult = await query(
+    `SELECT fs.*, f.created_by, f.fields, f.title 
+     FROM form_submissions fs 
+     JOIN forms f ON fs.form_id = f.id 
+     WHERE fs.id = $1`,
+    [id]
+  );
+
+  if (submissionResult.rows.length === 0) {
+    throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
+  }
+
+  const submission = submissionResult.rows[0];
+
+  // Check ownership (super admin can update any submission)
+  if (req.user.role !== 'super_admin' && submission.created_by !== req.user.id) {
+    throw new AppError('You can only update submissions for your own forms', 403, 'SUBMISSION_ACCESS_DENIED');
+  }
+
+  // Validate responses against form fields
+  await validateFormResponses(submission.form_id, responses);
+
+  // Update submission
+  const result = await query(
+    `UPDATE form_submissions 
+     SET responses = $1, updated_at = CURRENT_TIMESTAMP 
+     WHERE id = $2 
+     RETURNING id, form_id, responses, submitter_email, submitted_at`,
+    [JSON.stringify(responses), id]
+  );
+
+  res.json({
+    message: 'Submission updated successfully',
+    submission: result.rows[0]
+  });
+}));
+
+// DELETE /api/submissions/:id - Delete submission (admin only)
+router.delete('/submission/:id', authenticateToken, [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid submission ID format')
+], handleValidationErrors, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Get submission with form info to check ownership
+  const submissionResult = await query(
+    `SELECT fs.*, f.created_by, f.title 
+     FROM form_submissions fs 
+     JOIN forms f ON fs.form_id = f.id 
+     WHERE fs.id = $1`,
+    [id]
+  );
+
+  if (submissionResult.rows.length === 0) {
+    throw new AppError('Submission not found', 404, 'SUBMISSION_NOT_FOUND');
+  }
+
+  const submission = submissionResult.rows[0];
+
+  // Check ownership (super admin can delete any submission)
+  if (req.user.role !== 'super_admin' && submission.created_by !== req.user.id) {
+    throw new AppError('You can only delete submissions for your own forms', 403, 'SUBMISSION_ACCESS_DENIED');
+  }
+
+  // Delete submission
+  await query('DELETE FROM form_submissions WHERE id = $1', [id]);
+
+  res.json({
+    message: 'Submission deleted successfully',
+    deletedSubmission: {
+      id: submission.id,
+      formTitle: submission.title,
+      submitterEmail: submission.submitter_email
+    }
+  });
 }));
 
 module.exports = router;

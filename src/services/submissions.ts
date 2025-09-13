@@ -123,6 +123,47 @@ export class SubmissionsService {
     }
   }
 
+  // Update submission responses
+  static async updateSubmission(id: string, responses: Record<string, any>): Promise<{
+    message: string;
+    submission: FormSubmission;
+  }> {
+    try {
+      return await apiClient.put<{ message: string; submission: FormSubmission }>(API_ENDPOINTS.SUBMISSIONS.UPDATE(id), { responses });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to update submission', 500);
+    }
+  }
+
+  // Delete submission (using the correct endpoint)
+  static async deleteSubmissionById(id: string): Promise<{
+    message: string;
+    deletedSubmission: {
+      id: string;
+      formTitle: string;
+      submitterEmail?: string;
+    };
+  }> {
+    try {
+      return await apiClient.delete<{
+        message: string;
+        deletedSubmission: {
+          id: string;
+          formTitle: string;
+          submitterEmail?: string;
+        };
+      }>(API_ENDPOINTS.SUBMISSIONS.DELETE_SUBMISSION(id));
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to delete submission', 500);
+    }
+  }
+
   // Handle API errors with user-friendly messages
   static handleApiError(error: unknown): string {
     if (error instanceof ApiError) {

@@ -5,6 +5,7 @@ import {
   Menu,
   MessageSquare,
   Settings,
+  Users,
   X
 } from 'lucide-react';
 import React, { useState } from 'react';
@@ -16,16 +17,28 @@ interface LayoutProps {
   onPageChange: (page: string) => void;
 }
 
-const navigation = [
-  { name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
-  { name: 'Forms', icon: FileText, id: 'forms' },
-  { name: 'Submissions', icon: MessageSquare, id: 'submissions' },
-  { name: 'Settings', icon: Settings, id: 'settings' },
-];
+const getNavigation = (userRole: string) => {
+  const baseNavigation = [
+    { name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
+    { name: 'Forms', icon: FileText, id: 'forms' },
+  ];
+
+  // Add Users management for super admins only
+  if (userRole === 'super_admin') {
+    baseNavigation.push({ name: 'Users', icon: Users, id: 'users' });
+  }
+
+  // Add Settings for all users
+  baseNavigation.push({ name: 'Settings', icon: Settings, id: 'settings' });
+
+  return baseNavigation;
+};
 
 export function Layout({ children, currentPage, onPageChange }: LayoutProps) {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const navigation = getNavigation(user?.role || 'admin');
 
   return (
     <div className="min-h-screen bg-gray-50">

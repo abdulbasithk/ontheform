@@ -6,6 +6,7 @@ import { Layout } from './layout';
 import { Dashboard } from './dashboard';
 import { FormsPage } from './forms';
 import { SettingsPage } from './settings';
+import { UsersPage } from './users/UsersPage';
 
 function AdminApp() {
   const { user } = useAuth();
@@ -21,6 +22,8 @@ function AdminApp() {
         return <Dashboard />;
       case 'forms':
         return <FormsPage />;
+      case 'users':
+        return <UsersPage />;
       case 'settings':
         return <SettingsPage />;
       default:

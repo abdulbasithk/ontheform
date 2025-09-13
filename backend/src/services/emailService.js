@@ -2,9 +2,7 @@ const axios = require('axios');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
-const FormData = require('form-data');
-
-require('dotenv').config({ path: '.env' });
+require('dotenv').config();
 // Email service configuration
 class EmailService {
   constructor() {
@@ -107,11 +105,11 @@ class EmailService {
           // Update email content to show QR code image inline
           qrCodeImage = `
             <div style="text-align: center; margin: 20px 0;">
-              <h3 style="color: #374151; margin-bottom: 10px;">Your Submission QR Code</h3>
+              <h3 style="color: #374151; margin-bottom: 10px;">${formTitle}</h3>
               <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; display: inline-block;">
                 <img src="${absoluteQrCodeUrl}" alt="Submission QR Code" style="display: block; margin: 0 auto; max-width: 200px; height: auto;" />
               </div>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Scan this QR code to access your submission: <strong>${submissionId}</strong></p>
+              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Scan this QR code to access your submission</p>
             </div>
           `;
         } catch (error) {
@@ -158,14 +156,6 @@ class EmailService {
                 </div>
                 <h1 style="color: #111827; margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">Submission Confirmed!</h1>
                 <p style="color: #6b7280; margin: 0; font-size: 16px;">Thank you for submitting the form</p>
-              </div>
-
-              <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                <h2 style="color: #374151; margin: 0 0 15px 0; font-size: 20px; font-weight: 600;">${formTitle}</h2>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="color: #6b7280; font-size: 14px;">Submission ID:</span>
-                  <span style="color: #111827; font-weight: 600; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-size: 14px;">${submissionId}</span>
-                </div>
               </div>
 
               ${qrCodeImage}

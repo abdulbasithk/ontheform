@@ -125,10 +125,25 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
               value={field.label}
               onChange={(e) => updateField(index, { label: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter field label"
+              placeholder="Enter field label (English)"
               required
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Secondary Label
+            </label>
+            <input
+              type="text"
+              value={field.secondary_label || ''}
+              onChange={(e) => updateField(index, { secondary_label: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter secondary label (Indonesian)"
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Field Type
@@ -214,16 +229,32 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
           </div>
         )}
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            checked={field.required}
-            onChange={(e) => updateField(index, { required: e.target.checked })}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label className="ml-2 text-sm text-gray-700">
-            Required field
-          </label>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={field.required}
+              onChange={(e) => updateField(index, { required: e.target.checked })}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label className="ml-2 text-sm text-gray-700">
+              Required field
+            </label>
+          </div>
+          
+          {field.type === 'select' && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={field.allow_other || false}
+                onChange={(e) => updateField(index, { allow_other: e.target.checked })}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label className="ml-2 text-sm text-gray-700">
+                Allow "Other" option
+              </label>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -362,6 +393,17 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
                         </button>
                       </div>
                     )}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={addField}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      disabled={isLoading}
+                    >
+                      <Plus size={16} className="mr-1" />
+                      Add Field
+                    </button>
                   </div>
                 </div>
               </div>

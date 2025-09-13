@@ -80,7 +80,7 @@ const requireAdmin = (req, res, next) => {
     });
   }
 
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'super_admin'].includes(req.user.role)) {
     return res.status(403).json({ 
       error: 'Admin access required',
       code: 'ADMIN_REQUIRED'
@@ -88,6 +88,55 @@ const requireAdmin = (req, res, next) => {
   }
 
   next();
+};
+
+// Middleware to require super admin role
+const requireSuperAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Authentication required',
+      code: 'AUTH_REQUIRED'
+    });
+  }
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ 
+      error: 'Super admin access required',
+      code: 'SUPER_ADMIN_REQUIRED'
+    });
+  }
+
+  next();
+};
+
+// Middleware to check if user owns resource or is super admin
+const requireOwnershipOrSuperAdmin = (resourceUserIdField = 'created_by') => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    // Super admin can access everything
+    if (req.user.role === 'super_admin') {
+      return next();
+    }
+
+    // For regular admins, we'll need to check ownership in the route handler
+    // This middleware just ensures they're authenticated
+    if (req.user.role === 'admin') {
+      req.requireOwnership = true;
+      req.resourceUserIdField = resourceUserIdField;
+      return next();
+    }
+
+    return res.status(403).json({ 
+      error: 'Insufficient permissions',
+      code: 'INSUFFICIENT_PERMISSIONS'
+    });
+  };
 };
 
 // Optional authentication middleware (doesn't fail if no token)
@@ -149,6 +198,8 @@ const verifyToken = (token) => {
 module.exports = {
   authenticateToken,
   requireAdmin,
+  requireSuperAdmin,
+  requireOwnershipOrSuperAdmin,
   optionalAuth,
   generateToken,
   verifyToken

@@ -238,6 +238,16 @@ export const API_ENDPOINTS = {
     PROFILE: '/auth/profile',
     CHANGE_PASSWORD: '/auth/change-password',
   },
+  
+  USERS: {
+    LIST: '/users',
+    CREATE: '/users',
+    GET: (id: string) => `/users/${id}`,
+    UPDATE: (id: string) => `/users/${id}`,
+    DELETE: (id: string) => `/users/${id}`,
+    PROFILE: '/users/profile/me',
+    CHANGE_PASSWORD: '/users/change-password',
+  },
   // Forms
   FORMS: {
     LIST: '/forms',
@@ -254,7 +264,9 @@ export const API_ENDPOINTS = {
     LIST: '/submissions',
     BY_FORM: (formId: string) => `/submissions/form/${formId}`,
     GET: (id: string) => `/submissions/${id}`,
+    UPDATE: (id: string) => `/submissions/${id}`,
     DELETE: (id: string) => `/submissions/${id}`,
+    DELETE_SUBMISSION: (id: string) => `/submissions/submission/${id}`,
     EXPORT: (formId: string) => `/submissions/export/form/${formId}`,
   },
 } as const;

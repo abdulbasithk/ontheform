@@ -68,9 +68,18 @@ const validateForm = [
     .trim()
     .notEmpty()
     .withMessage('Field label is required'),
+  body('fields.*.secondary_label')
+    .optional()
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('Secondary label must be less than 255 characters'),
   body('fields.*.required')
     .isBoolean()
     .withMessage('Field required must be boolean'),
+  body('fields.*.allow_other')
+    .optional()
+    .isBoolean()
+    .withMessage('Allow other must be boolean'),
   body('isActive')
     .optional()
     .isBoolean()
@@ -96,14 +105,49 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+// Helper function to check form ownership
+const checkFormOwnership = async (formId, userId, userRole) => {
+  const result = await query(
+    'SELECT id, created_by FROM forms WHERE id = $1',
+    [formId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new AppError('Form not found', 404, 'FORM_NOT_FOUND');
+  }
+
+  const form = result.rows[0];
+  
+  // Super admin can access any form
+  if (userRole === 'super_admin') {
+    return form;
+  }
+
+  // Regular admin can only access their own forms
+  if (form.created_by !== userId) {
+    throw new AppError('You can only access your own forms', 403, 'FORM_ACCESS_DENIED');
+  }
+
+  return form;
+};
+
 // GET /api/forms - Get all forms (admin only)
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, search, status } = req.query;
   const offset = (page - 1) * limit;
 
-  let whereClause = 'WHERE created_by = $1';
-  let queryParams = [req.user.id];
-  let paramCount = 2;
+  // Super admin can see all forms, regular admin only sees their own
+  let whereClause = '';
+  let queryParams = [];
+  let paramCount = 1;
+
+  if (req.user.role !== 'super_admin') {
+    whereClause = 'WHERE created_by = $1';
+    queryParams = [req.user.id];
+    paramCount = 2;
+  } else {
+    whereClause = 'WHERE 1=1';
+  }
 
   // Add search filter
   if (search) {
@@ -241,7 +285,8 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
     });
   }
 
-  if (existingForm.rows[0].created_by !== req.user.id) {
+  // Check ownership (super admin can modify any form)
+  if (req.user.role !== 'super_admin' && existingForm.rows[0].created_by !== req.user.id) {
     return res.status(403).json({
       error: 'You can only update your own forms',
       code: 'FORM_ACCESS_DENIED'

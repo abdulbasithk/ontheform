@@ -17,9 +17,12 @@ export function LoginPage() {
   useEffect(() => {
     if (email || password) {
       setLocalError('');
-      clearError();
+      // Only clear auth context errors when user starts typing after an error
+      if (error) {
+        clearError();
+      }
     }
-  }, [email, password, clearError]);
+  }, [email, password, error, clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +41,8 @@ export function LoginPage() {
     }
 
     const success = await login(email, password);
-    if (!success && !error) {
-      setLocalError('Login failed. Please try again.');
-    }
+    // The error will be set by the AuthContext if login fails
+    // No need to set a fallback error here as the AuthService handles it
   };
 
   const displayError = localError || error;
@@ -128,15 +130,6 @@ export function LoginPage() {
             )}
           </button>
         </form>
-        
-        {/* Demo credentials info */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials</h4>
-          <div className="text-sm text-blue-700">
-            <p><strong>Email:</strong> admin@ontheform.com</p>
-            <p><strong>Password:</strong> admin123</p>
-          </div>
-        </div>
       </div>
     </div>
   );
