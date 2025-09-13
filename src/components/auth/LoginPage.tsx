@@ -27,7 +27,6 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
-    clearError();
 
     // Client-side validation
     if (!email || !password) {
@@ -40,12 +39,21 @@ export function LoginPage() {
       return;
     }
 
-    await login(email, password);
-    // The error will be set by the AuthContext if login fails
-    // No need to set a fallback error here as the AuthService handles it
+    // Clear error only right before attempting login
+    clearError();
+    const success = await login(email, password);
+    
+    // If login failed but no error is showing, there's a state sync issue
+    if (!success) {
+      setTimeout(() => {
+        if (!error && !localError) {
+          setLocalError('Login failed. Please check your credentials.');
+        }
+      }, 200);
+    }
   };
 
-  const displayError = localError || error;
+  const displayError =  error || localError;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">

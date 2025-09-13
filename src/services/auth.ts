@@ -174,6 +174,11 @@ export class AuthService {
     if (error instanceof ApiError) {
       // Handle specific error types
       if (error.isAuthError()) {
+        // For login errors (401), don't logout and return the actual error message
+        if (error.code === 'INVALID_CREDENTIALS' || error.code === 'ACCOUNT_DEACTIVATED') {
+          return error.message;
+        }
+        // For other auth errors (token expired, etc.), logout
         this.logout();
         return 'Your session has expired. Please log in again.';
       }
