@@ -142,12 +142,64 @@ router.get('/', authenticateToken, requireSuperAdmin, asyncHandler(async (req, r
   });
 }));
 
+// PUT /api/users/change-password - Change password with current password validation
+router.put('/change-password', authenticateToken, [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('New password must be at least 6 characters'),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Password confirmation does not match');
+      }
+      return true;
+    })
+], handleValidationErrors, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  // Get current user with password hash
+  const userResult = await query(
+    'SELECT password_hash FROM users WHERE id = $1',
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
+  const user = userResult.rows[0];
+
+  // Verify current password
+  const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isCurrentPasswordValid) {
+    throw new AppError('Current password is incorrect', 400, 'INVALID_CURRENT_PASSWORD');
+  }
+
+  // Hash new password
+  const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
+  const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+  // Update password
+  await query(
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [newPasswordHash, userId]
+  );
+
+  res.json({
+    message: 'Password changed successfully'
+  });
+}));
+
 // GET /api/users/:id - Get user by ID (super admin only)
 router.get('/:id', authenticateToken, requireSuperAdmin, validateUUID, handleValidationErrors, asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const result = await query(
-    'SELECT * FROM user_management_view WHERE id = $1',
+    'SELECT id, name, email, role, is_active, created_at, updated_at FROM users WHERE id = $1',
     [id]
   );
 
@@ -406,58 +458,6 @@ router.put('/profile/me', authenticateToken, [
   res.json({
     message: 'Profile updated successfully',
     user: result.rows[0]
-  });
-}));
-
-// PUT /api/users/change-password - Change password with current password validation
-router.put('/change-password', authenticateToken, [
-  body('currentPassword')
-    .notEmpty()
-    .withMessage('Current password is required'),
-  body('newPassword')
-    .isLength({ min: 6 })
-    .withMessage('New password must be at least 6 characters'),
-  body('confirmPassword')
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error('Password confirmation does not match');
-      }
-      return true;
-    })
-], handleValidationErrors, asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  const userId = req.user.id;
-
-  // Get current user with password hash
-  const userResult = await query(
-    'SELECT password_hash FROM users WHERE id = $1',
-    [userId]
-  );
-
-  if (userResult.rows.length === 0) {
-    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-  }
-
-  const user = userResult.rows[0];
-
-  // Verify current password
-  const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
-  if (!isCurrentPasswordValid) {
-    throw new AppError('Current password is incorrect', 400, 'INVALID_CURRENT_PASSWORD');
-  }
-
-  // Hash new password
-  const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-  const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-
-  // Update password
-  await query(
-    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-    [newPasswordHash, userId]
-  );
-
-  res.json({
-    message: 'Password changed successfully'
   });
 }));
 
