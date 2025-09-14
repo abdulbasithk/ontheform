@@ -5,6 +5,8 @@ import {
   Eye,
   EyeOff,
   Loader,
+  Monitor,
+  MonitorOff,
   MoreVertical,
   Plus,
   Search,
@@ -136,6 +138,17 @@ export function FormsPage() {
     }
   };
 
+  const toggleFormDisplay = async (formId: string) => {
+    try {
+      await FormsService.toggleFormDisplay(formId);
+      // Refresh the forms list
+      fetchForms({ page: pagination.currentPage });
+    } catch (error) {
+      const errorMessage = FormsService.handleApiError(error);
+      setError(errorMessage);
+    }
+  };
+
   const deleteForm = (form: Form) => {
     setFormToDelete(form);
     setShowDeleteConfirm(true);
@@ -178,6 +191,9 @@ export function FormsPage() {
         break;
       case 'duplicate':
         duplicateForm(form);
+        break;
+      case 'display':
+        toggleFormDisplay(form.id);
         break;
       default:
         break;
@@ -308,13 +324,21 @@ export function FormsPage() {
                       <div className="text-sm font-medium text-gray-900">{form.title}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        form.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {form.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          form.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {form.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        {form.is_displayed && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <Monitor size={12} className="mr-1" />
+                            Displayed
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                        {form.submission_count || 0}
@@ -373,6 +397,25 @@ export function FormsPage() {
                                  </>
                                )}
                              </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDropdownAction('display', form);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              {form.is_displayed ? (
+                                <>
+                                  <MonitorOff size={14} />
+                                  Remove from Display
+                                </>
+                              ) : (
+                                <>
+                                  <Monitor size={14} />
+                                  Set as Displayed
+                                </>
+                              )}
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

@@ -83,7 +83,11 @@ const validateForm = [
   body('isActive')
     .optional()
     .isBoolean()
-    .withMessage('isActive must be boolean')
+    .withMessage('isActive must be boolean'),
+  body('isDisplayed')
+    .optional()
+    .isBoolean()
+    .withMessage('isDisplayed must be boolean')
 ];
 
 const validateUUID = [
@@ -168,7 +172,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
     `SELECT 
       id, title, description, fields, is_active, submission_count,
       unique_constraint_type, unique_constraint_field, banner_url,
-      show_qr_code, send_email_notification,
+      show_qr_code, send_email_notification, is_displayed,
       created_at, updated_at
     FROM forms 
     ${whereClause}
@@ -198,11 +202,52 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   });
 }));
 
+// GET /api/forms/displayed - Get the currently displayed form (public)
+router.get('/displayed', asyncHandler(async (req, res) => {
+  console.log('GET /displayed endpoint called');
+  
+  try {
+    const result = await query(
+      `SELECT 
+        id, title, description, fields, is_active, submission_count,
+        unique_constraint_type, unique_constraint_field, banner_url,
+        show_qr_code, send_email_notification, is_displayed,
+        created_at, updated_at
+      FROM forms 
+      WHERE is_displayed = true AND is_active = true
+      LIMIT 1`
+    );
+
+    console.log('Query result:', result.rows.length, 'rows found');
+
+    if (result.rows.length === 0) {
+      console.log('No displayed form found, returning 404');
+      return res.status(404).json({
+        error: 'No form is currently displayed',
+        code: 'NO_DISPLAYED_FORM'
+      });
+    }
+
+    const form = result.rows[0];
+    
+    // Parse fields if they're stored as string
+    if (typeof form.fields === 'string') {
+      form.fields = JSON.parse(form.fields);
+    }
+
+    console.log('Returning form:', form.id);
+    res.json({ form });
+  } catch (error) {
+    console.error('Error in /displayed endpoint:', error);
+    throw error;
+  }
+}));
+
 // GET /api/forms/:id - Get single form (public for form display, auth for admin)
 router.get('/:id', validateUUID, handleValidationErrors, optionalAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   
-  let selectClause = 'id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at';
+  let selectClause = 'id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at';
   let whereClause = 'WHERE id = $1';
   let queryParams = [id];
 
@@ -237,10 +282,15 @@ router.get('/:id', validateUUID, handleValidationErrors, optionalAuth, asyncHand
   res.json({ form });
 }));
 
-// POST /api/forms - Create new form
+// POST /api/forms - Create new form (admin only)
 router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncHandler(async (req, res) => {
-  const { title, description, fields, isActive = true } = req.body;
+  const { title, description, fields, isActive = true, isDisplayed = false } = req.body;
   const formId = uuidv4();
+
+  // If setting this form as displayed, unset all other displayed forms
+  if (isDisplayed) {
+    await query('UPDATE forms SET is_displayed = false WHERE is_displayed = true');
+  }
 
   // Validate field IDs are unique within the form
   const fieldIds = fields.map(field => field.id);
@@ -253,10 +303,10 @@ router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncH
   }
 
   const result = await query(
-    `INSERT INTO forms (id, title, description, fields, is_active, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
-    [formId, title, description, JSON.stringify(fields), isActive, req.user.id]
+    `INSERT INTO forms (id, title, description, fields, is_active, is_displayed, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    [formId, title, description, JSON.stringify(fields), isActive, isDisplayed, req.user.id]
   );
 
   const newForm = result.rows[0];
@@ -267,10 +317,15 @@ router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncH
   });
 }));
 
-// PUT /api/forms/:id - Update form
+// PUT /api/forms/:id - Update form (admin only)
 router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidationErrors, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { title, description, fields, isActive } = req.body;
+  const { title, description, fields, isActive, isDisplayed = false } = req.body;
+
+  // If setting this form as displayed, unset all other displayed forms
+  if (isDisplayed) {
+    await query('UPDATE forms SET is_displayed = false WHERE is_displayed = true AND id != $1', [id]);
+  }
 
   // Check if form exists and user owns it
   const existingForm = await query(
@@ -305,10 +360,10 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
 
   const result = await query(
     `UPDATE forms 
-     SET title = $1, description = $2, fields = $3, is_active = $4, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $5
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
-    [title, description, JSON.stringify(fields), isActive, id]
+     SET title = $1, description = $2, fields = $3, is_active = $4, is_displayed = $5, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $6
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    [title, description, JSON.stringify(fields), isActive, isDisplayed, id]
   );
 
   const updatedForm = result.rows[0];
@@ -412,7 +467,7 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
     `UPDATE forms 
      SET ${updateFields.join(', ')}
      WHERE id = $${paramIndex}
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     updateValues
   );
 
@@ -464,7 +519,7 @@ router.post('/:id/banner', authenticateToken, validateUUID, upload.single('banne
     `UPDATE forms 
      SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [bannerUrl, id]
   );
 
@@ -509,7 +564,7 @@ router.delete('/:id/banner', authenticateToken, validateUUID, asyncHandler(async
     `UPDATE forms 
      SET banner_url = NULL, updated_at = CURRENT_TIMESTAMP
      WHERE id = $1
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [id]
   );
 
@@ -605,6 +660,61 @@ router.patch('/:id/toggle', authenticateToken, validateUUID, handleValidationErr
   });
 }));
 
+// PATCH /api/forms/:id/display - Toggle form display status (admin only)
+router.patch('/:id/display', authenticateToken, validateUUID, handleValidationErrors, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Check if form exists and user owns it
+  const existingForm = await query(
+    'SELECT id, created_by, is_displayed FROM forms WHERE id = $1',
+    [id]
+  );
+
+  if (existingForm.rows.length === 0) {
+    return res.status(404).json({
+      error: 'Form not found',
+      code: 'FORM_NOT_FOUND'
+    });
+  }
+
+  // Check ownership (super admin can modify any form)
+  if (req.user.role !== 'super_admin' && existingForm.rows[0].created_by !== req.user.id) {
+    return res.status(403).json({
+      error: 'You can only update your own forms',
+      code: 'FORM_ACCESS_DENIED'
+    });
+  }
+
+  const currentDisplayStatus = existingForm.rows[0].is_displayed;
+  const newDisplayStatus = !currentDisplayStatus;
+
+  // If setting this form as displayed, unset all other displayed forms
+  if (newDisplayStatus) {
+    await query('UPDATE forms SET is_displayed = false WHERE is_displayed = true AND id != $1', [id]);
+  }
+
+  // Update the form's display status
+  const result = await query(
+    `UPDATE forms 
+     SET is_displayed = $1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $2
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    [newDisplayStatus, id]
+  );
+
+  const updatedForm = result.rows[0];
+  
+  // Parse fields if they're stored as string
+  if (typeof updatedForm.fields === 'string') {
+    updatedForm.fields = JSON.parse(updatedForm.fields);
+  }
+
+  res.json({
+    message: `Form ${updatedForm.is_displayed ? 'set as displayed' : 'removed from display'} successfully`,
+    form: updatedForm
+  });
+}));
+
 // POST /api/forms/:id/duplicate - Duplicate form
 router.post('/:id/duplicate', authenticateToken, validateUUID, handleValidationErrors, asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -637,7 +747,7 @@ router.post('/:id/duplicate', authenticateToken, validateUUID, handleValidationE
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, created_by)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [newFormId, newTitle, form.description, JSON.stringify(form.fields), false, req.user.id] // Set as inactive by default
   );
 

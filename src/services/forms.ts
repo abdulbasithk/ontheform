@@ -7,6 +7,7 @@ export interface CreateFormRequest {
   description?: string;
   fields: FormField[];
   isActive?: boolean;
+  isDisplayed?: boolean;
 }
 
 export interface UpdateFormRequest {
@@ -14,6 +15,7 @@ export interface UpdateFormRequest {
   description?: string;
   fields: FormField[];
   isActive?: boolean;
+  isDisplayed?: boolean;
 }
 
 export interface FormResponse {
@@ -232,6 +234,31 @@ export class FormsService {
     }
 
     return errors;
+  }
+
+  // Get the currently displayed form
+  static async getDisplayedForm(): Promise<Form> {
+    try {
+      const response = await apiClient.get<{ form: Form }>(API_ENDPOINTS.FORMS.DISPLAYED);
+      return response.form;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to fetch displayed form', 500);
+    }
+  }
+
+  // Toggle form display status
+  static async toggleFormDisplay(formId: string): Promise<FormResponse> {
+    try {
+      return await apiClient.patch<FormResponse>(API_ENDPOINTS.FORMS.TOGGLE_DISPLAY(formId));
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to toggle form display', 500);
+    }
   }
 
   // Handle API errors with user-friendly messages

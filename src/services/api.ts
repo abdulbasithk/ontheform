@@ -257,6 +257,8 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/forms/${id}`,
     TOGGLE: (id: string) => `/forms/${id}/toggle`,
     DUPLICATE: (id: string) => `/forms/${id}/duplicate`,
+    DISPLAYED: '/forms/displayed',
+    TOGGLE_DISPLAY: (id: string) => `/forms/${id}/display`,
   },
   // Submissions
   SUBMISSIONS: {
