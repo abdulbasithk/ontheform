@@ -8,6 +8,7 @@ import { FormsPage } from './forms';
 import { SettingsPage } from './settings';
 import { UsersPage } from './users/UsersPage';
 import { Form } from '../types';
+import FormsService from '../services/forms';
 
 function AdminApp() {
   const { user } = useAuth();
@@ -47,16 +48,19 @@ function DisplayedFormPage() {
   React.useEffect(() => {
     const fetchDisplayedForm = async () => {
       try {
-        const response = await fetch('/api/forms/displayed');
-        if (response.ok) {
-          const data = await response.json();
-          setDisplayedForm(data.form);
-        } else {
-          // If no displayed form, redirect to admin
-          window.location.href = '/admin';
-        }
+        console.log('Fetching displayed form using FormsService');
+        const form = await FormsService.getDisplayedForm();
+        console.log('Displayed form data:', form);
+        setDisplayedForm(form);
       } catch (err: unknown) {
-        setError('Failed to load form');
+        console.error('Error fetching displayed form:', err);
+        // Handle different types of errors
+        const errorMessage = FormsService.handleApiError(err);
+        if (errorMessage.includes('not found') || errorMessage.includes('No form')) {
+          setError('No form is currently displayed');
+        } else {
+          setError(errorMessage);
+        }
       } finally {
         setIsLoading(false);
       }

@@ -17,7 +17,14 @@ class EmailService {
     
     this.apiKey = apiKey;
     this.secret = secret;
+    
+    // Configure email settings from environment variables
+    this.fromEmail = process.env.EMAIL_FROM || 'no-reply@sodtix.com';
+    this.emailDomain = process.env.EMAIL_DOMAIN || 'sodtix.com';
+    
     console.log('📧 Email service initialized with Kirim.email');
+    console.log(`📧 From email: ${this.fromEmail}`);
+    console.log(`📧 Email domain: ${this.emailDomain}`);
   }
 
   // Generate QR code as buffer for email attachment
@@ -171,7 +178,7 @@ class EmailService {
 
       // Send email using Kirim.email API with inline QR code image
       const requestData = new URLSearchParams({
-        from: 'no-reply-form@sodtix.com',
+        from: this.fromEmail,
         to: recipientEmail,
         subject: `Form Submission Confirmation - ${formTitle}`,
         text: htmlContent
@@ -179,7 +186,7 @@ class EmailService {
       
       const headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'domain': 'sodtix.com'
+        'domain': this.emailDomain
       };
 
       const config = {
