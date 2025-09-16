@@ -579,7 +579,7 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
               <img
                 src={getBannerUrl(form.banner_url)}
                 alt="Form banner"
-                className="w-full h-48 object-cover rounded-lg"
+                className="w-full h-auto object-contain rounded-lg max-h-64 sm:max-h-80 md:max-h-96"
               />
             </div>
           )}
