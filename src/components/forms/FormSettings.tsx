@@ -17,6 +17,11 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   const [uniqueConstraintField, setUniqueConstraintField] = useState<string>('');
   const [showQrCode, setShowQrCode] = useState<boolean>(false);
   const [sendEmailNotification, setSendEmailNotification] = useState<boolean>(false);
+  const [showTermsCheckbox, setShowTermsCheckbox] = useState<boolean>(false);
+  const [termsText, setTermsText] = useState<string>('');
+  const [termsSecondaryText, setTermsSecondaryText] = useState<string>('');
+  const [termsLinkUrl, setTermsLinkUrl] = useState<string>('');
+  const [termsLinkText, setTermsLinkText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -29,6 +34,11 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       setUniqueConstraintField(initialForm.unique_constraint_field || '');
       setShowQrCode(initialForm.show_qr_code || false);
       setSendEmailNotification(initialForm.send_email_notification || false);
+      setShowTermsCheckbox(initialForm.show_terms_checkbox || false);
+      setTermsText(initialForm.terms_text || '');
+      setTermsSecondaryText(initialForm.terms_secondary_text || '');
+      setTermsLinkUrl(initialForm.terms_link_url || '');
+      setTermsLinkText(initialForm.terms_link_text || '');
       setError(null);
       setSuccess(false);
     }
@@ -47,7 +57,12 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
         uniqueConstraintType,
         uniqueConstraintField: uniqueConstraintType === 'field' ? uniqueConstraintField : undefined,
         showQrCode,
-        sendEmailNotification
+        sendEmailNotification,
+        showTermsCheckbox,
+        termsText: showTermsCheckbox ? termsText : undefined,
+        termsSecondaryText: showTermsCheckbox ? termsSecondaryText : undefined,
+        termsLinkUrl: showTermsCheckbox && termsLinkUrl ? termsLinkUrl : undefined,
+        termsLinkText: showTermsCheckbox && termsLinkText ? termsLinkText : undefined
       };
 
       const response = await FormsService.updateFormSettings(form.id, settings);
@@ -280,6 +295,106 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
                         </label>
                       </div>
                     </div>
+
+                    {/* Terms and Conditions Setting */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">Terms and Conditions Agreement</h3>
+                          <p className="text-sm text-gray-600 mb-4">
+                            Require users to accept terms and conditions before submitting the form. You can customize the agreement text and include links to external documents.
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer ml-4">
+                          <input
+                            type="checkbox"
+                            checked={showTermsCheckbox}
+                            onChange={(e) => setShowTermsCheckbox(e.target.checked)}
+                            className="sr-only peer"
+                            disabled={isLoading}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Terms Configuration Fields */}
+                      {showTermsCheckbox && (
+                        <div className="space-y-4 pt-4 border-t border-gray-200">
+                          {/* Primary Terms Text */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Primary Agreement Text (English)
+                            </label>
+                            <textarea
+                              value={termsText}
+                              onChange={(e) => setTermsText(e.target.value)}
+                              placeholder="I have read and agree to the Terms and Conditions..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                              rows={3}
+                              disabled={isLoading}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              URLs in this text will automatically become clickable links
+                            </p>
+                          </div>
+
+                          {/* Secondary Terms Text */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Secondary Agreement Text (Optional - e.g., Indonesian)
+                            </label>
+                            <textarea
+                              value={termsSecondaryText}
+                              onChange={(e) => setTermsSecondaryText(e.target.value)}
+                              placeholder="Dengan mengirimkan formulir ini, Anda setuju..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                              rows={3}
+                              disabled={isLoading}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              This text will be displayed in italics below the primary text
+                            </p>
+                          </div>
+
+                          {/* Terms Link */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Terms Document Link (Optional)
+                              </label>
+                              <input
+                                type="url"
+                                value={termsLinkUrl}
+                                onChange={(e) => setTermsLinkUrl(e.target.value)}
+                                placeholder="https://example.com/terms"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                disabled={isLoading}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Link Display Text
+                              </label>
+                              <input
+                                type="text"
+                                value={termsLinkText}
+                                onChange={(e) => setTermsLinkText(e.target.value)}
+                                placeholder="Read full Terms & Conditions"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                disabled={isLoading}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <p>• Users must check the agreement box before submitting</p>
+                            <p>• URLs in text are automatically converted to clickable links</p>
+                            <p>• Secondary text appears in italics for visual distinction</p>
+                            <p>• External links open in new tabs for security</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info Box */}
@@ -292,6 +407,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
                           <li>• Unique constraints only apply to new submissions</li>
                           <li>• QR codes contain the unique submission ID for easy reference</li>
                           <li>• Email notifications require users to provide an email address</li>
+                          <li>• Terms and conditions require user agreement before submission</li>
                           <li>• All features work independently and can be enabled separately</li>
                         </ul>
                       </div>

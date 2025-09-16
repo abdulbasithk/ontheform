@@ -21,6 +21,32 @@ interface PublicFormPageProps {
   formId: string;
 }
 
+// Function to parse text and convert URLs to clickable links
+const parseTextWithLinks = (text: string) => {
+  if (!text) return null;
+  
+  // Regular expression to match URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline break-all"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export function PublicFormPage({ formId }: PublicFormPageProps) {
   const [form, setForm] = useState<Form | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -32,6 +58,7 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [submissionResponse, setSubmissionResponse] = useState<any>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -94,6 +121,11 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
         }
       }
     });
+
+    // Terms and conditions validation
+    if (form?.show_terms_checkbox && !termsAccepted) {
+      errors['terms'] = 'You must accept the terms and conditions to proceed';
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -604,6 +636,58 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
               </div>
             )}
 
+            {/* Terms and Conditions */}
+            {form.show_terms_checkbox && (
+              <div className="mt-6">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="terms-checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      // Clear validation error when checkbox is checked
+                      if (e.target.checked && validationErrors['terms']) {
+                        setValidationErrors((prev) => {
+                          const newErrors = { ...prev };
+                          delete newErrors['terms'];
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="terms-checkbox" className="text-sm text-gray-700 leading-relaxed">
+                     {form.terms_text && (
+                       <div className="block mb-3 text-justify">
+                         {parseTextWithLinks(form.terms_text)}
+                       </div>
+                     )}
+                     {form.terms_secondary_text && (
+                       <div className="block mb-3 text-justify italic text-gray-600">
+                         {parseTextWithLinks(form.terms_secondary_text)}
+                       </div>
+                     )}
+                     {form.terms_link_url && form.terms_link_text && (
+                       <div className="block">
+                         <a
+                           href={form.terms_link_url}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="text-blue-600 hover:text-blue-800 underline font-medium"
+                         >
+                           {form.terms_link_text}
+                         </a>
+                       </div>
+                     )}
+                   </label>
+                </div>
+                {validationErrors['terms'] && (
+                  <p className="mt-2 text-sm text-red-600">{validationErrors['terms']}</p>
+                )}
+              </div>
+            )}
+
             {/* Mandatory field notices */}
             <div className="mt-6">
               <div className="text-sm text-gray-700 space-y-1">
@@ -617,7 +701,7 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
             <div className="mt-8 flex justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (form.show_terms_checkbox && !termsAccepted)}
                 className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (

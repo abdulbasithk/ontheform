@@ -140,6 +140,11 @@ export class FormsService {
     uniqueConstraintField?: string;
     showQrCode?: boolean;
     sendEmailNotification?: boolean;
+    showTermsCheckbox?: boolean;
+    termsText?: string;
+    termsSecondaryText?: string;
+    termsLinkUrl?: string;
+    termsLinkText?: string;
   }): Promise<{ message: string; form: Form }> {
     try {
       return await apiClient.put<{ message: string; form: Form }>(`${API_ENDPOINTS.FORMS.UPDATE(id)}/settings`, settings);

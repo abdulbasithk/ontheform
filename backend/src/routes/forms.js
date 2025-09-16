@@ -173,6 +173,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
       id, title, description, fields, is_active, submission_count,
       unique_constraint_type, unique_constraint_field, banner_url,
       show_qr_code, send_email_notification, is_displayed,
+      show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
       created_at, updated_at
     FROM forms 
     ${whereClause}
@@ -212,6 +213,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
         id, title, description, fields, is_active, submission_count,
         unique_constraint_type, unique_constraint_field, banner_url,
         show_qr_code, send_email_notification, is_displayed,
+        show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
         created_at, updated_at
       FROM forms 
       WHERE is_displayed = true AND is_active = true
@@ -247,7 +249,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
 router.get('/:id', validateUUID, handleValidationErrors, optionalAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   
-  let selectClause = 'id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at';
+  let selectClause = 'id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, created_at, updated_at';
   let whereClause = 'WHERE id = $1';
   let queryParams = [id];
 
@@ -305,7 +307,7 @@ router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncH
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, is_displayed, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
     [formId, title, description, JSON.stringify(fields), isActive, isDisplayed, req.user.id]
   );
 
@@ -362,7 +364,7 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
     `UPDATE forms 
      SET title = $1, description = $2, fields = $3, is_active = $4, is_displayed = $5, updated_at = CURRENT_TIMESTAMP
      WHERE id = $6
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
     [title, description, JSON.stringify(fields), isActive, isDisplayed, id]
   );
 
@@ -379,30 +381,24 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
   body('uniqueConstraintType').optional().isIn(['none', 'ip', 'field']).withMessage('Invalid unique constraint type'),
   body('uniqueConstraintField').optional().isString().withMessage('Unique constraint field must be a string'),
   body('showQrCode').optional().isBoolean().withMessage('Show QR code must be a boolean'),
-  body('sendEmailNotification').optional().isBoolean().withMessage('Send email notification must be a boolean')
+  body('sendEmailNotification').optional().isBoolean().withMessage('Send email notification must be a boolean'),
+  body('showTermsCheckbox').optional().isBoolean().withMessage('Show terms checkbox must be a boolean'),
+  body('termsText').optional().isString().withMessage('Terms text must be a string'),
+  body('termsSecondaryText').optional().isString().withMessage('Terms secondary text must be a string'),
+  body('termsLinkUrl').optional().isURL().withMessage('Terms link URL must be a valid URL'),
+  body('termsLinkText').optional().isString().withMessage('Terms link text must be a string')
 ], handleValidationErrors, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { uniqueConstraintType, uniqueConstraintField, showQrCode, sendEmailNotification } = req.body;
+  const { uniqueConstraintType, uniqueConstraintField, showQrCode, sendEmailNotification, showTermsCheckbox, termsText, termsSecondaryText, termsLinkUrl, termsLinkText } = req.body;
 
-  // Check if form exists and user owns it
-  const existingForm = await query(
-    'SELECT id, created_by, fields FROM forms WHERE id = $1',
+  // Check if form exists and user owns it (or is super admin)
+  const existingForm = await checkFormOwnership(id, req.user.id, req.user.role);
+  
+  // Get form fields for validation
+  const formFieldsResult = await query(
+    'SELECT fields FROM forms WHERE id = $1',
     [id]
   );
-
-  if (existingForm.rows.length === 0) {
-    return res.status(404).json({
-      error: 'Form not found',
-      code: 'FORM_NOT_FOUND'
-    });
-  }
-
-  if (existingForm.rows[0].created_by !== req.user.id) {
-    return res.status(403).json({
-      error: 'You can only update your own forms',
-      code: 'FORM_ACCESS_DENIED'
-    });
-  }
 
   // Validate field constraint
   if (uniqueConstraintType === 'field') {
@@ -413,9 +409,9 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
       });
     }
     
-    const fields = typeof existingForm.rows[0].fields === 'string' 
-      ? JSON.parse(existingForm.rows[0].fields) 
-      : existingForm.rows[0].fields;
+    const fields = typeof formFieldsResult.rows[0].fields === 'string' 
+      ? JSON.parse(formFieldsResult.rows[0].fields) 
+      : formFieldsResult.rows[0].fields;
     
     const fieldExists = fields.some(field => field.id === uniqueConstraintField);
     if (!fieldExists) {
@@ -452,6 +448,36 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
   if (sendEmailNotification !== undefined) {
     updateFields.push(`send_email_notification = $${paramIndex}`);
     updateValues.push(sendEmailNotification);
+    paramIndex++;
+  }
+
+  if (showTermsCheckbox !== undefined) {
+    updateFields.push(`show_terms_checkbox = $${paramIndex}`);
+    updateValues.push(showTermsCheckbox);
+    paramIndex++;
+  }
+
+  if (termsText !== undefined) {
+    updateFields.push(`terms_text = $${paramIndex}`);
+    updateValues.push(termsText);
+    paramIndex++;
+  }
+
+  if (termsSecondaryText !== undefined) {
+    updateFields.push(`terms_secondary_text = $${paramIndex}`);
+    updateValues.push(termsSecondaryText);
+    paramIndex++;
+  }
+
+  if (termsLinkUrl !== undefined) {
+    updateFields.push(`terms_link_url = $${paramIndex}`);
+    updateValues.push(termsLinkUrl);
+    paramIndex++;
+  }
+
+  if (termsLinkText !== undefined) {
+    updateFields.push(`terms_link_text = $${paramIndex}`);
+    updateValues.push(termsLinkText);
     paramIndex++;
   }
 

@@ -31,6 +31,11 @@ export interface Form {
   banner_url?: string;
   show_qr_code?: boolean;
   send_email_notification?: boolean;
+  show_terms_checkbox?: boolean;
+  terms_text?: string;
+  terms_secondary_text?: string;
+  terms_link_url?: string;
+  terms_link_text?: string;
 }
 
 export interface FormSubmission {
