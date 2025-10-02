@@ -271,6 +271,14 @@ export const API_ENDPOINTS = {
     DELETE_SUBMISSION: (id: string) => `/submissions/submission/${id}`,
     EXPORT: (formId: string) => `/submissions/export/form/${formId}`,
   },
+  // Email Blast
+  EMAIL_BLAST: {
+    RECIPIENTS: (formId: string) => `/email-blast/${formId}/recipients`,
+    TEST: (formId: string) => `/email-blast/${formId}/test`,
+    SEND: (formId: string) => `/email-blast/${formId}/send`,
+    STATUS: (formId: string, blastId: string) => `/email-blast/${formId}/status/${blastId}`,
+    PLACEHOLDERS: (formId: string) => `/email-blast/${formId}/placeholders`,
+  },
 } as const;
 
 export default apiClient;

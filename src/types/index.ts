@@ -53,3 +53,51 @@ export interface DashboardStats {
   averageSubmissions: number;
   recentSubmissions: number;
 }
+
+export interface EmailBlastPlaceholder {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface EmailBlastRecipient {
+  email: string;
+  data: Record<string, any>;
+}
+
+export interface EmailBlastRecipientsResponse {
+  formId: string;
+  formTitle: string;
+  totalSubmissions: number;
+  validRecipients: number;
+  recipients: EmailBlastRecipient[];
+  placeholders: EmailBlastPlaceholder[];
+}
+
+export interface EmailBlastJobStatus {
+  jobId: string;
+  status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed';
+  progress: number;
+  recipientEmail?: string;
+  failedReason?: string;
+}
+
+export interface EmailBlastStatus {
+  blastId: string;
+  total: number;
+  completed: number;
+  failed: number;
+  active: number;
+  waiting: number;
+  overallStatus: 'processing' | 'completed' | 'failed' | 'partial';
+  jobs: EmailBlastJobStatus[];
+  metadata?: {
+    formId: string;
+    formTitle: string;
+    subject: string;
+    totalRecipients: number;
+    startedAt: Date;
+    userId: string;
+    status: string;
+  };
+}

@@ -10,8 +10,10 @@ const formRoutes = require('./routes/forms');
 const submissionRoutes = require('./routes/submissions');
 const dashboardRoutes = require('./routes/dashboard');
 const userRoutes = require('./routes/users');
+const emailBlastRoutes = require('./routes/emailBlast');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticateToken } = require('./middleware/auth');
+const { initializeWorker } = require('./workers/emailBlastWorker');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -66,6 +68,7 @@ app.use('/api/forms', formRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/email-blast', emailBlastRoutes);
 
 // Protected admin routes
 app.use('/api/admin', authenticateToken, (req, res) => {
@@ -85,12 +88,21 @@ app.use('*', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5174'}`);
   console.log(`💾 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
   console.log(`✅ Backend API ready at http://localhost:${PORT}`);
+
+  // Initialize email blast worker
+  try {
+    await initializeWorker();
+    console.log('📧 Email blast worker initialized');
+  } catch (error) {
+    console.error('⚠️  Failed to initialize email blast worker:', error.message);
+    console.error('⚠️  Email blast functionality may not work properly');
+  }
 });
 
 // Graceful shutdown

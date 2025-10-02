@@ -1,3 +1,5 @@
+const { validationResult } = require('express-validator');
+
 // Global error handler middleware
 const errorHandler = (err, req, res, next) => {
   console.error('❌ Error:', {
@@ -78,6 +80,19 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
+// Helper function to handle validation errors
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      code: 'VALIDATION_ERROR',
+      details: errors.array()
+    });
+  }
+  next();
+};
+
 // Async error wrapper
 const asyncHandler = (fn) => {
   return (req, res, next) => {
@@ -105,6 +120,7 @@ const notFound = (req, res, next) => {
 
 module.exports = {
   errorHandler,
+  handleValidationErrors,
   asyncHandler,
   AppError,
   notFound

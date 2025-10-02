@@ -6,6 +6,7 @@ import {
   Edit,
   ExternalLink,
   Eye,
+  Mail,
   MessageSquare,
   Settings,
   Share2,
@@ -19,6 +20,7 @@ import { FormPreview } from './FormPreview';
 import { FormSettings } from './FormSettings';
 import { SubmissionEditModal } from '../submissions/SubmissionEditModal';
 import { SubmissionDeleteModal } from '../submissions/SubmissionDeleteModal';
+import { EmailBlastModal } from './EmailBlastModal';
 
 interface FormDetailProps {
   form: Form;
@@ -42,7 +44,8 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
   const [showSubmissionEditModal, setShowSubmissionEditModal] = useState(false);
   const [showSubmissionDeleteModal, setShowSubmissionDeleteModal] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
-  
+  const [showEmailBlastModal, setShowEmailBlastModal] = useState(false);
+
   const limit = 10;
   
   const completedSubmissions = submissions.filter(sub => sub.responses);
@@ -107,6 +110,7 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
   };
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -155,7 +159,14 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
           >
             <Settings size={16} />
           </button>
-          <button 
+          <button
+            onClick={() => setShowEmailBlastModal(true)}
+            title="Send email blast"
+            className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Mail size={16} />
+          </button>
+          <button
               onClick={() => setShowShareModal(true)}
               className="inline-flex items-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
             >
@@ -523,7 +534,16 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
           onSuccess={handleDeleteSuccess}
         />
       )}
+
+      {/* Email Blast Modal */}
+      {showEmailBlastModal && (
+        <EmailBlastModal
+          form={form}
+          onClose={() => setShowEmailBlastModal(false)}
+        />
+      )}
     </div>
+    </>
   );
 }
 
