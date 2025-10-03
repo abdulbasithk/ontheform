@@ -91,7 +91,7 @@ function DisplayedFormPage() {
     );
   }
 
-  return <PublicFormPage formId={displayedForm.id} />;
+  return <PublicFormPage formId={displayedForm.id} form={displayedForm} />;
 }
 
 export function Router() {

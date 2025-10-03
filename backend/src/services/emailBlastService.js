@@ -209,7 +209,7 @@ class EmailBlastService {
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
         <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;">
           ${bannerImage}
-          <div style="padding: 32px;">
+          <div style="padding: 12px;">
             ${content}
             <div style="border-top: 1px solid #e5e7eb; margin-top: 32px; padding-top: 20px; text-align: center;">
               <p style="color: #6b7280; font-size: 14px; margin: 0;">This email was sent from ${formTitle}</p>
