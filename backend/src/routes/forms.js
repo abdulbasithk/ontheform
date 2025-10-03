@@ -216,7 +216,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
         show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
         created_at, updated_at
       FROM forms 
-      WHERE is_displayed = true AND is_active = true
+      WHERE is_displayed = true
       LIMIT 1`
     );
 

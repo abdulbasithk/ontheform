@@ -69,7 +69,7 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
         if (response.form && response.form.is_active) {
           setForm(response.form);
         } else {
-          setError("Form not found or is no longer active");
+          setError("For any assistance or inquiries, please contact your Epson sales representative directly.");
         }
       } catch (error) {
         const errorMessage = FormsService.handleApiError(error);
@@ -495,9 +495,9 @@ export function PublicFormPage({ formId }: PublicFormPageProps) {
             <AlertCircle size={32} className="text-red-600" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Form Not Available
+            Registration Closed
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="text-gray-600 mb-6 whitespace-pre-line">{error}</div>
           <button
             onClick={() => window.history.back()}
             className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
