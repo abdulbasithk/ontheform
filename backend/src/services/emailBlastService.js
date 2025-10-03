@@ -1,6 +1,6 @@
-const emailService = require('./emailService');
-const queueService = require('./queueService');
-const { v4: uuidv4 } = require('uuid');
+const emailService = require("./emailService");
+const queueService = require("./queueService");
+const { v4: uuidv4 } = require("uuid");
 
 class EmailBlastService {
   constructor() {
@@ -14,14 +14,17 @@ class EmailBlastService {
     // Replace all {{placeholder}} with actual values
     // Updated regex to support UUIDs (includes hyphens)
     const placeholderRegex = /\{\{([a-zA-Z0-9_-]+)\}\}/g;
-    processedContent = processedContent.replace(placeholderRegex, (match, key) => {
-      // Check if the key exists in the data
-      if (data.hasOwnProperty(key)) {
-        return data[key] || '';
+    processedContent = processedContent.replace(
+      placeholderRegex,
+      (match, key) => {
+        // Check if the key exists in the data
+        if (data.hasOwnProperty(key)) {
+          return data[key] || "";
+        }
+        // If not found, leave the placeholder as is
+        return match;
       }
-      // If not found, leave the placeholder as is
-      return match;
-    });
+    );
 
     return processedContent;
   }
@@ -29,11 +32,15 @@ class EmailBlastService {
   // Extract available placeholders from form fields
   getAvailablePlaceholders(formFields) {
     const placeholders = [
-      { key: 'email', label: 'Email Address', description: 'Recipient email address' },
+      {
+        key: "email",
+        label: "Email Address",
+        description: "Recipient email address",
+      },
     ];
 
     // Add form fields as placeholders
-    formFields.forEach(field => {
+    formFields.forEach((field) => {
       placeholders.push({
         key: field.id,
         label: field.label,
@@ -50,7 +57,7 @@ class EmailBlastService {
 
     for (const submission of submissions) {
       const email = submission.submitter_email;
-      
+
       if (!email || !this.isValidEmail(email)) {
         continue;
       }
@@ -64,7 +71,7 @@ class EmailBlastService {
 
       // Add form field responses
       if (submission.responses) {
-        Object.keys(submission.responses).forEach(fieldId => {
+        Object.keys(submission.responses).forEach((fieldId) => {
           data[fieldId] = submission.responses[fieldId];
         });
       }
@@ -85,11 +92,18 @@ class EmailBlastService {
   }
 
   // Send test email
-  async sendTestEmail({ recipientEmail, subject, htmlContent, formTitle, bannerUrl, testData }) {
+  async sendTestEmail({
+    recipientEmail,
+    subject,
+    htmlContent,
+    formTitle,
+    bannerUrl,
+    testData,
+  }) {
     try {
       // Validate email
       if (!this.isValidEmail(recipientEmail)) {
-        throw new Error('Invalid email address');
+        throw new Error("Invalid email address");
       }
 
       // Replace placeholders with test data
@@ -97,31 +111,39 @@ class EmailBlastService {
       const processedContent = this.replacePlaceholders(htmlContent, testData);
 
       // Build email HTML with banner if available
-      const emailHtml = this.buildEmailHtml(processedContent, formTitle, bannerUrl);
+      const emailHtml = this.buildEmailHtml(
+        processedContent,
+        formTitle,
+        bannerUrl
+      );
 
       // Send email using existing email service
-      const result = await this.sendEmail(recipientEmail, processedSubject, emailHtml);
+      const result = await this.sendEmail(
+        recipientEmail,
+        processedSubject,
+        emailHtml
+      );
 
       return {
         success: true,
-        message: 'Test email sent successfully',
+        message: "Test email sent successfully",
         result: result,
       };
     } catch (error) {
-      console.error('Error sending test email:', error);
+      console.error("Error sending test email:", error);
       throw error;
     }
   }
 
   // Start email blast
-  async startEmailBlast({ 
-    formId, 
-    formTitle, 
-    subject, 
-    htmlContent, 
-    recipients, 
+  async startEmailBlast({
+    formId,
+    formTitle,
+    subject,
+    htmlContent,
+    recipients,
     bannerUrl,
-    userId 
+    userId,
   }) {
     try {
       // Initialize queue service
@@ -138,14 +160,24 @@ class EmailBlastService {
         totalRecipients: recipients.length,
         startedAt: new Date(),
         userId,
-        status: 'processing',
+        status: "processing",
       });
 
       // Add jobs to queue for each recipient
       const jobPromises = recipients.map(async (recipient) => {
-        const processedSubject = this.replacePlaceholders(subject, recipient.data);
-        const processedContent = this.replacePlaceholders(htmlContent, recipient.data);
-        const emailHtml = this.buildEmailHtml(processedContent, formTitle, bannerUrl);
+        const processedSubject = this.replacePlaceholders(
+          subject,
+          recipient.data
+        );
+        const processedContent = this.replacePlaceholders(
+          htmlContent,
+          recipient.data
+        );
+        const emailHtml = this.buildEmailHtml(
+          processedContent,
+          formTitle,
+          bannerUrl
+        );
 
         return queueService.addEmailBlastJob({
           blastId,
@@ -159,16 +191,18 @@ class EmailBlastService {
 
       await Promise.all(jobPromises);
 
-      console.log(`📧 Email blast ${blastId} started with ${recipients.length} recipients`);
+      console.log(
+        `📧 Email blast ${blastId} started with ${recipients.length} recipients`
+      );
 
       return {
         blastId,
         totalRecipients: recipients.length,
-        status: 'processing',
-        message: 'Email blast started successfully',
+        status: "processing",
+        message: "Email blast started successfully",
       };
     } catch (error) {
-      console.error('Error starting email blast:', error);
+      console.error("Error starting email blast:", error);
       throw error;
     }
   }
@@ -185,18 +219,20 @@ class EmailBlastService {
         metadata: metadata || null,
       };
     } catch (error) {
-      console.error('Error getting blast status:', error);
+      console.error("Error getting blast status:", error);
       throw error;
     }
   }
 
   // Build email HTML with banner and styling
   buildEmailHtml(content, formTitle, bannerUrl) {
-    const bannerImage = bannerUrl 
+    const baseUrl = process.env.BACKEND_URL || "http://localhost:3001";
+    const absoluteBannerUrl = `${baseUrl}${bannerUrl}`;
+    const bannerImage = bannerUrl
       ? `<div style="width: 100%; max-height: 200px; overflow: hidden;">
-           <img src="${bannerUrl}" alt="${formTitle}" style="width: 100%; height: auto; display: block;" />
+           <img src="${absoluteBannerUrl}" alt="${formTitle}" style="width: 100%; height: auto; display: block;" />
          </div>`
-      : '';
+      : "";
 
     return `
       <!DOCTYPE html>
@@ -224,40 +260,40 @@ class EmailBlastService {
   // Send individual email using Kirim.email
   async sendEmail(recipientEmail, subject, htmlContent) {
     try {
-      const axios = require('axios');
-      
+      const axios = require("axios");
+
       const requestData = new URLSearchParams({
         from: emailService.fromEmail,
         to: recipientEmail,
         subject: subject,
-        text: htmlContent
+        text: htmlContent,
       });
-      
+
       const headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'domain': emailService.emailDomain
+        "Content-Type": "application/x-www-form-urlencoded",
+        domain: emailService.emailDomain,
       };
 
       const config = {
-        method: 'post',
-        url: 'https://smtp-app.kirim.email/api/v4/transactional/message',
+        method: "post",
+        url: "https://smtp-app.kirim.email/api/v4/transactional/message",
         headers: headers,
         auth: {
           username: emailService.apiKey,
-          password: emailService.secret
+          password: emailService.secret,
         },
-        data: requestData
+        data: requestData,
       };
 
       const response = await axios(config);
-      
+
       return {
         success: true,
-        messageId: response.data.id || 'unknown',
+        messageId: response.data.id || "unknown",
         status: response.status,
       };
     } catch (error) {
-      console.error('Error sending email:', error.message);
+      console.error("Error sending email:", error.message);
       throw error;
     }
   }
@@ -276,4 +312,3 @@ class EmailBlastService {
 // Export singleton instance
 const emailBlastService = new EmailBlastService();
 module.exports = emailBlastService;
-
