@@ -75,7 +75,7 @@ export function PublicFormPage({
           setForm(preloadedForm);
         } else if(preloadedForm && !preloadedForm.is_active){
           setError(
-            "For any assistance or inquiries, please contact your Epson sales representative directly."
+            "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
           );
         } 
         else {
@@ -84,7 +84,7 @@ export function PublicFormPage({
             setForm(response.form);
           } else {
             setError(
-              "For any assistance or inquiries, please contact your Epson sales representative directly."
+              "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
             );
           }
         }
