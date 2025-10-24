@@ -20,6 +20,25 @@ export const getBannerUrl = (bannerPath: string | undefined): string | undefined
   return fullUrl;
 };
 
+// Utility function to get full file URL
+export const getFileUrl = (filePath: string | undefined): string | undefined => {
+  if (!filePath) return undefined;
+  // If it's already a full URL, return as is
+  if (filePath.startsWith('http')) return filePath;
+  
+  // For development (API_BASE_URL = '/api'), return the path as is for proxy
+  if (API_BASE_URL === '/api') {
+    return filePath;
+  }
+  
+  // For production, construct full URL
+  // API_BASE_URL should be like 'https://api.sodgroup.site/api'
+  // filePath should be like '/api/submissions/uploads/submissions/...'
+  // We need to replace '/api' in filePath with the full API_BASE_URL
+  const fullUrl = filePath.replace('/api', API_BASE_URL);
+  return fullUrl;
+};
+
 // API response types
 
 // HTTP client class

@@ -9,11 +9,14 @@ import {
   Mail,
   MessageSquare,
   Send,
-  Type
+  Type,
+  Upload
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Form, FormField } from '../../types';
 import { getBannerUrl } from '../../services/api';
+import { FileUploadField } from './FileUploadField';
+import { SubmissionsService } from '../../services/submissions';
 
 interface FormPreviewProps {
   form: Form;
@@ -24,6 +27,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleInputChange = (fieldId: string, value: any) => {
     setFormData(prev => ({
@@ -35,18 +39,44 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError(null);
     
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setSubmitted(true);
-    
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({});
-    }, 3000);
+    try {
+      // Collect file uploads and text responses separately
+      const filesMap: Record<string, File> = {};
+      const responses: Record<string, any> = {};
+
+      for (const [fieldId, value] of Object.entries(formData)) {
+        if (value instanceof File) {
+          filesMap[fieldId] = value;
+        } else {
+          responses[fieldId] = value;
+        }
+      }
+
+      // Submit the form with files
+      await SubmissionsService.submitForm(
+        {
+          formId: form.id,
+          responses
+        },
+        filesMap
+      );
+
+      setIsSubmitting(false);
+      setSubmitted(true);
+      
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({});
+      }, 3000);
+    } catch (error) {
+      setIsSubmitting(false);
+      setSubmitError(
+        error instanceof Error ? error.message : 'Failed to submit form. Please try again.'
+      );
+    }
   };
 
   const getFieldIcon = (type: FormField['type']) => {
@@ -57,6 +87,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
       case 'date': return Calendar;
       case 'select': return List;
       case 'checkbox': return CheckSquare;
+      case 'file': return Upload;
       default: return Type;
     }
   };
@@ -222,6 +253,18 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
           </div>
         );
 
+      case 'file':
+        return (
+          <div key={field.id}>
+            <FileUploadField
+              field={field}
+              value={formData[field.id] || null}
+              previewUrl={formData[field.id] ? URL.createObjectURL(formData[field.id]) : undefined}
+              onChange={(file) => handleInputChange(field.id, file)}
+            />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -279,6 +322,14 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                   <h3 className="text-xl font-bold text-gray-900">{form.title}</h3>
                   <p className="text-gray-600 mt-2">{form.description}</p>
                 </div>
+
+                {/* Error Message */}
+                {submitError && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{submitError}</p>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit}>
                   <div className="space-y-6">
                     {form.fields.map(renderField)}
@@ -287,7 +338,8 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                     <button
                       type="button"
                       onClick={onClose}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      disabled={isSubmitting}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Close Preview
                     </button>

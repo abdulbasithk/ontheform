@@ -53,6 +53,10 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static file serving for uploads
+const path = require('path');
+app.use('/api/submissions/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
@@ -69,6 +73,8 @@ app.use('/api/submissions', submissionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/email-blast', emailBlastRoutes);
+
+app.use('/api/submissions/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Protected admin routes
 app.use('/api/admin', authenticateToken, (req, res) => {
@@ -97,7 +103,7 @@ app.listen(PORT, async () => {
 
   // Initialize email blast worker
   try {
-    await initializeWorker();
+    // await initializeWorker();
     console.log('📧 Email blast worker initialized');
   } catch (error) {
     console.error('⚠️  Failed to initialize email blast worker:', error.message);

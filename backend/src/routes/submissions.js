@@ -1,6 +1,9 @@
 const express = require('express');
 const { body, param, query: queryValidator, validationResult } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const ExcelJS = require('exceljs');
 const QRCode = require('qrcode');
 const { query } = require('../config/database');
@@ -9,6 +12,86 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const emailService = require('../services/emailService');
 
 const router = express.Router();
+
+// Configure multer for file uploads in submissions
+const submissionUploadStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads/submissions');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    cb(null, `${name}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const submissionUpload = multer({
+  storage: submissionUploadStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for submission files
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow common file types including images, documents, etc.
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'text/plain'
+    ];
+
+    if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} is not allowed`), false);
+    }
+  }
+});
+
+// Middleware to handle multer errors
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'FILE_TOO_LARGE') {
+      return res.status(400).json({
+        error: 'File is too large',
+        code: 'FILE_TOO_LARGE',
+        message: `Maximum file size is ${(50 * 1024 * 1024) / (1024 * 1024)}MB`
+      });
+    } else if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        error: 'Too many files',
+        code: 'LIMIT_FILE_COUNT'
+      });
+    } else if (err.code === 'LIMIT_PART_COUNT') {
+      return res.status(400).json({
+        error: 'Too many form parts',
+        code: 'LIMIT_PART_COUNT'
+      });
+    }
+  } else if (err) {
+    // Custom error from fileFilter
+    return res.status(400).json({
+      error: err.message,
+      code: 'FILE_VALIDATION_ERROR'
+    });
+  }
+  next();
+};
+
+// Serve uploaded submission files
+router.use('/uploads/submissions', express.static(path.join(__dirname, '../../uploads/submissions')));
 
 // Validation middleware
 const validateSubmission = [
@@ -105,8 +188,33 @@ const validateFormResponses = async (formId, responses) => {
 };
 
 // POST /api/submissions - Submit form (public endpoint)
-router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async (req, res) => {
-  const { formId, responses } = req.body;
+// Use submissionUpload.any() to handle both files and regular fields
+router.post('/', submissionUpload.any(), handleMulterError, asyncHandler(async (req, res) => {
+  let formId, responses;
+  
+  // Parse form data
+  try {
+    // Handle both JSON and multipart/form-data
+    if (req.is('application/json')) {
+      formId = req.body.formId;
+      responses = req.body.responses;
+    } else {
+      // For multipart/form-data, formId and responses come as form fields
+      formId = req.body.formId;
+      responses = req.body.responses ? JSON.parse(req.body.responses) : {};
+    }
+  } catch (error) {
+    throw new AppError('Invalid form data', 400, 'INVALID_FORM_DATA');
+  }
+
+  // Validate formId and responses
+  if (!formId || typeof formId !== 'string') {
+    throw new AppError('Valid form ID is required', 400, 'INVALID_FORM_ID');
+  }
+  if (typeof responses !== 'object' || responses === null) {
+    throw new AppError('Responses must be an object', 400, 'INVALID_RESPONSES');
+  }
+
   const submitterIp = req.ip || req.connection.remoteAddress;
   const userAgent = req.get('User-Agent');
 
@@ -123,6 +231,23 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
 
     const form = formResult.rows[0];
 
+    // Process uploaded files and map them to responses
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        // file.fieldname corresponds to the form field ID
+        const fieldId = file.fieldname;
+        
+        // Store the file path in responses
+        const fileUrl = `/api/submissions/uploads/submissions/${file.filename}`;
+        responses[fieldId] = {
+          filename: file.originalname,
+          path: fileUrl,
+          mimetype: file.mimetype,
+          size: file.size
+        };
+      }
+    }
+
     // Check unique constraints
     if (form.unique_constraint_type && form.unique_constraint_type !== 'none') {
       let constraintQuery = '';
@@ -137,11 +262,17 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
           break;
 
         case 'field':
-          if (!form.unique_constraint_field || !responses[form.unique_constraint_field]) {
+          const uniqueFieldValue = responses[form.unique_constraint_field];
+          if (!uniqueFieldValue) {
             throw new AppError('Required unique field is missing', 400, 'UNIQUE_FIELD_REQUIRED');
           }
           constraintQuery = `SELECT id FROM form_submissions WHERE form_id = $1 AND responses->>'${form.unique_constraint_field}' = $2`;
-          constraintParams.push(responses[form.unique_constraint_field]);
+          
+          // Handle both string and object responses
+          let valueToCheck = typeof uniqueFieldValue === 'object' 
+            ? JSON.stringify(uniqueFieldValue) 
+            : String(uniqueFieldValue);
+          constraintParams.push(valueToCheck);
           constraintMessage = 'A submission with this value already exists';
           break;
       }
@@ -154,24 +285,24 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
       }
     }
 
-    // Validate form responses
+    // Validate form responses (including files)
     await validateFormResponses(formId, responses);
 
     // Extract and validate email from form fields
-     let submitterEmail = null;
-     for (const field of form.fields) {
-       if (field.type === 'email' && responses[field.id]) {
-         const emailValue = responses[field.id].trim();
-         // Basic email validation
-         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-         if (emailRegex.test(emailValue)) {
-           submitterEmail = emailValue.toLowerCase();
-           break; // Use the first valid email field found
-         } else {
-           throw new AppError(`Invalid email format in field: ${field.label}`, 400, 'INVALID_EMAIL_FORMAT');
-         }
-       }
-     }
+    let submitterEmail = null;
+    for (const field of form.fields) {
+      if (field.type === 'email' && responses[field.id]) {
+        const emailValue = responses[field.id].trim();
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(emailValue)) {
+          submitterEmail = emailValue.toLowerCase();
+          break; // Use the first valid email field found
+        } else {
+          throw new AppError(`Invalid email format in field: ${field.label}`, 400, 'INVALID_EMAIL_FORMAT');
+        }
+      }
+    }
 
     // Create submission
     const submissionId = uuidv4();
@@ -581,10 +712,11 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
 
   // Add form field headers
   formFields.forEach(field => {
+    const width = field.type === 'file' ? 40 : 20;
     headers.push({
       header: field.label,
       key: field.id,
-      width: 20
+      width: width
     });
   });
 
@@ -613,8 +745,22 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
     // Add form field responses
     formFields.forEach(field => {
       const value = responses?.[field.id];
-      if (Array.isArray(value)) {
+      if (field.type === 'file') {
+        // Handle file fields - show filename with download link
+        if (value && typeof value === 'object' && value.filename) {
+          // For Excel, include the full URL using BACKEND_URL if available
+          const fileUrl = process.env.BACKEND_URL 
+            ? `${process.env.BACKEND_URL}${value.path}`
+            : value.path;
+          rowData[field.id] = `${value.filename}\n(Link: ${fileUrl})`;
+        } else {
+          rowData[field.id] = '';
+        }
+      } else if (Array.isArray(value)) {
         rowData[field.id] = value.join(', ');
+      } else if (typeof value === 'object' && value !== null) {
+        // Handle object responses (shouldn't happen for non-file fields but be safe)
+        rowData[field.id] = JSON.stringify(value);
       } else {
         rowData[field.id] = value || '';
       }

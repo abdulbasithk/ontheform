@@ -34,10 +34,28 @@ export interface SubmissionListParams {
 
 // Submissions service
 export class SubmissionsService {
-  // Submit a form
-  static async submitForm(data: SubmitFormRequest): Promise<SubmissionResponse> {
+  // Submit a form with support for file uploads
+  static async submitForm(data: SubmitFormRequest, filesMap?: Record<string, File>): Promise<SubmissionResponse> {
     try {
-      return await apiClient.post<SubmissionResponse>(API_ENDPOINTS.SUBMISSIONS.SUBMIT, data);
+      // If there are files, use multipart/form-data
+      if (filesMap && Object.keys(filesMap).length > 0) {
+        const formData = new FormData();
+        formData.append('formId', data.formId);
+        formData.append('responses', JSON.stringify(data.responses));
+
+        // Add files to the form data
+        for (const [fieldId, file] of Object.entries(filesMap)) {
+          formData.append(fieldId, file);
+        }
+
+        return await apiClient.postFormData<SubmissionResponse>(
+          API_ENDPOINTS.SUBMISSIONS.SUBMIT, 
+          formData
+        );
+      } else {
+        // No files, use regular JSON
+        return await apiClient.post<SubmissionResponse>(API_ENDPOINTS.SUBMISSIONS.SUBMIT, data);
+      }
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

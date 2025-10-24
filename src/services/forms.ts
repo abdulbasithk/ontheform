@@ -225,7 +225,7 @@ export class FormsService {
         
         if (!field.type) {
           errors.push(`Field ${index + 1}: Type is required`);
-        } else if (!['text', 'email', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date'].includes(field.type)) {
+        } else if (!['text', 'email', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'file'].includes(field.type)) {
           errors.push(`Field ${index + 1}: Invalid field type`);
         }
         

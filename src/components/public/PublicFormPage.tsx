@@ -10,12 +10,14 @@ import {
   MessageSquare,
   Send,
   Type,
+  Upload,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import FormsService from "../../services/forms";
 import SubmissionsService from "../../services/submissions";
 import { getBannerUrl } from "../../services/api";
 import { Form, FormField } from "../../types";
+import { FileUploadField } from "../forms/FileUploadField";
 
 interface PublicFormPageProps {
   formId: string;
@@ -54,6 +56,7 @@ export function PublicFormPage({
 }: PublicFormPageProps) {
   const [form, setForm] = useState<Form | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [filesMap, setFilesMap] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,10 +103,33 @@ export function PublicFormPage({
   }, [formId, preloadedForm]);
 
   const handleInputChange = (fieldId: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
+    // Check if the value is a File object
+    if (value instanceof File) {
+      setFilesMap((prev) => ({
+        ...prev,
+        [fieldId]: value,
+      }));
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: value.name,
+      }));
+    } else if (value === null) {
+      // File was removed
+      setFilesMap((prev) => {
+        const newFiles = { ...prev };
+        delete newFiles[fieldId];
+        return newFiles;
+      });
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: "",
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: value,
+      }));
+    }
 
     // Clear validation error when user starts typing
     if (validationErrors[fieldId]) {
@@ -160,14 +186,18 @@ export function PublicFormPage({
 
     try {
       // Submit to backend
-      const response = await SubmissionsService.submitForm({
-        formId: form!.id,
-        responses: formData,
-      });
+      const response = await SubmissionsService.submitForm(
+        {
+          formId: form!.id,
+          responses: formData,
+        },
+        Object.keys(filesMap).length > 0 ? filesMap : undefined
+      );
 
       setSubmissionResponse(response);
       setSubmitted(true);
       setFormData({});
+      setFilesMap({});
     } catch (error) {
       const errorMessage = SubmissionsService.handleApiError(error);
       setError(errorMessage);
@@ -190,6 +220,8 @@ export function PublicFormPage({
         return List;
       case "checkbox":
         return CheckSquare;
+      case "file":
+        return Upload;
       default:
         return Type;
     }
@@ -489,6 +521,42 @@ export function PublicFormPage({
               onChange={(e) => handleInputChange(field.id, e.target.value)}
               required={field.required}
               className={baseInputClasses}
+            />
+            {hasError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle size={14} />
+                {validationErrors[field.id]}
+              </p>
+            )}
+          </div>
+        );
+
+      case "file":
+        return (
+          <div key={field.id} className="space-y-2">
+            <label className={labelClasses}>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-gray-500" />
+                <div>
+                  <div>
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </div>
+                  {field.secondary_label && (
+                    <div className="text-sm text-gray-600 italic">
+                      {field.secondary_label}
+                      {field.required && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </label>
+            <FileUploadField
+              field={field}
+              value={filesMap[field.id] || null}
+              onChange={(file) => handleInputChange(field.id, file)}
             />
             {hasError && (
               <p className="text-sm text-red-600 flex items-center gap-1">

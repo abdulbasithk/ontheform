@@ -7,13 +7,15 @@ export interface User {
 
 export interface FormField {
   id: string;
-  type: 'text' | 'email' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'number' | 'date';
+  type: 'text' | 'email' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'number' | 'date' | 'file';
   label: string;
   secondary_label?: string;
   placeholder?: string;
   required: boolean;
   options?: string[];
   allow_other?: boolean;
+  accept?: string; // For file fields: 'image/*', 'image/png', '.pdf', etc.
+  maxFileSize?: number; // In bytes, e.g., 5242880 for 5MB
 }
 
 export interface Form {

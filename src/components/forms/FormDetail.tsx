@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SubmissionsService from '../../services/submissions';
+import { getFileUrl } from '../../services/api';
 import { Form, FormSubmission } from '../../types';
 import { FormEdit } from './FormEdit';
 import { FormPreview } from './FormPreview';
@@ -350,16 +351,30 @@ export function FormDetail({ form: initialForm, onBack }: FormDetailProps) {
                               Completed
                             </span>
                           </td>
-                          {form.fields.slice(0, 2).map(field => (
-                            <td key={field.id} className="px-6 py-4 text-sm text-gray-900">
-                              <div className="max-w-xs truncate">
-                                {Array.isArray(submission.responses[field.id]) 
-                                  ? submission.responses[field.id].join(', ')
-                                  : submission.responses[field.id] || '-'
-                                }
-                              </div>
-                            </td>
-                          ))}
+                          {form.fields.slice(0, 2).map(field => {
+                            const value = submission.responses[field.id];
+                            
+                            return (
+                              <td key={field.id} className="px-6 py-4 text-sm text-gray-900">
+                                <div className="max-w-xs truncate">
+                                  {field.type === 'file' && value && typeof value === 'object' && value.filename ? (
+                                    <a
+                                      href={getFileUrl(value.path)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                                    >
+                                      {value.filename}
+                                    </a>
+                                  ) : Array.isArray(value) ? (
+                                    value.join(', ')
+                                  ) : (
+                                    value || '-'
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end gap-2">
                               <button
