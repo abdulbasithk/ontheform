@@ -257,41 +257,66 @@ class EmailBlastService {
     `;
   }
 
-  // Send individual email using Kirim.email
+  // Send individual email using configured provider
   async sendEmail(recipientEmail, subject, htmlContent) {
     try {
       const axios = require("axios");
 
-      const requestData = new URLSearchParams({
-        from: emailService.fromEmail,
-        to: recipientEmail,
-        subject: subject,
-        text: htmlContent,
-      });
+      if (emailService.provider === 'kirim') {
+        // Send via Kirim.email
+        const requestData = new URLSearchParams({
+          from: emailService.fromEmail,
+          to: recipientEmail,
+          subject: subject,
+          text: htmlContent,
+        });
 
-      const headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        domain: emailService.emailDomain,
-      };
+        const headers = {
+          "Content-Type": "application/x-www-form-urlencoded",
+          domain: emailService.emailDomain,
+        };
 
-      const config = {
-        method: "post",
-        url: "https://smtp-app.kirim.email/api/v4/transactional/message",
-        headers: headers,
-        auth: {
-          username: emailService.apiKey,
-          password: emailService.secret,
-        },
-        data: requestData,
-      };
+        const config = {
+          method: "post",
+          url: "https://smtp-app.kirim.email/api/v4/transactional/message",
+          headers: headers,
+          auth: {
+            username: emailService.apiKey,
+            password: emailService.secret,
+          },
+          data: requestData,
+        };
 
-      const response = await axios(config);
+        const response = await axios(config);
 
-      return {
-        success: true,
-        messageId: response.data.id || "unknown",
-        status: response.status,
-      };
+        return {
+          success: true,
+          messageId: response.data.id || "unknown",
+          status: response.status,
+        };
+      } else if (emailService.provider === 'sendgrid') {
+        // Send via SendGrid
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(emailService.apiKey);
+
+        const message = {
+          to: recipientEmail,
+          from: {
+            email: emailService.fromEmail,
+            name: 'OnTheForm'
+          },
+          subject: subject,
+          html: htmlContent
+        };
+
+        const response = await sgMail.send(message);
+
+        return {
+          success: true,
+          messageId: response[0].headers['x-message-id'] || 'unknown',
+          status: response[0].statusCode,
+        };
+      }
     } catch (error) {
       console.error("Error sending email:", error.message);
       throw error;

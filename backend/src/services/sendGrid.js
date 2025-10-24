@@ -12,8 +12,8 @@ const sendEmailSendGrid = async (email, subject, html, buffer) => {
     const message = {
       to: email,
       from: {
-        email: 'no-reply@sodtix.com',
-        name: 'SODTix',
+        email: process.env.EMAIL_FROM || 'ontheform@form.ontheground.id',
+        name: 'OnTheForm',
       },
       subject: subject,
       html: html,
