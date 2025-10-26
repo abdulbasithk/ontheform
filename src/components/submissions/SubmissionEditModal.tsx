@@ -143,6 +143,57 @@ export function SubmissionEditModal({ submission, formFields, onClose, onSuccess
           </div>
         );
 
+      case 'multiselect':
+        const multiselectValues = Array.isArray(value) ? value : [];
+        const showOtherMulti = responses[`${field.id}_other`] === true;
+        return (
+          <div className="space-y-2">
+            {field.options?.map((option, index) => (
+              <label key={index} className="flex items-center">
+                <input
+                  type="checkbox"
+                  value={option}
+                  checked={multiselectValues.includes(option)}
+                  onChange={(e) => {
+                    const newValues = e.target.checked
+                      ? [...multiselectValues, option]
+                      : multiselectValues.filter(v => v !== option);
+                    handleInputChange(field.id, newValues);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={isLoading}
+                />
+                <span className="ml-2 text-sm text-gray-700">{option}</span>
+              </label>
+            ))}
+            {field.allow_other && (
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showOtherMulti}
+                  onChange={(e) => {
+                    handleInputChange(`${field.id}_other`, e.target.checked);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={isLoading}
+                />
+                <span className="ml-2 text-sm text-gray-700">Other</span>
+              </label>
+            )}
+            {field.allow_other && showOtherMulti && (
+              <input
+                type="text"
+                value={responses[`${field.id}_other_text`] || ''}
+                onChange={(e) => handleInputChange(`${field.id}_other_text`, e.target.value)}
+                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Please specify"
+                disabled={isLoading}
+                required={field.required && showOtherMulti}
+              />
+            )}
+          </div>
+        );
+
       case 'radio':
         return (
           <div className="space-y-2">

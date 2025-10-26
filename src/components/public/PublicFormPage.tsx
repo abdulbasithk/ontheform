@@ -218,6 +218,8 @@ export function PublicFormPage({
         return Calendar;
       case "select":
         return List;
+      case "multiselect":
+        return List;
       case "checkbox":
         return CheckSquare;
       case "file":
@@ -382,6 +384,100 @@ export function PublicFormPage({
                 onChange={(e) => handleInputChange(field.id, e.target.value)}
                 placeholder="Please specify..."
                 required={field.required}
+                className={baseInputClasses}
+                autoFocus
+              />
+            )}
+            {hasError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle size={14} />
+                {validationErrors[field.id]}
+              </p>
+            )}
+          </div>
+        );
+
+      case "multiselect":
+        const showOtherInputMulti = formData[`${field.id}_other`] === true;
+        return (
+          <div key={field.id} className="space-y-3">
+            <label className={labelClasses}>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-gray-500" />
+                <div>
+                  <div>
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </div>
+                  {field.secondary_label && (
+                    <div className="text-sm text-gray-600 italic">
+                      {field.secondary_label}
+                      {field.required && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </label>
+            <div className="space-y-2">
+              {field.options?.map((option) => (
+                <label
+                  key={option}
+                  className="flex items-center space-x-3 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    value={option}
+                    checked={(value || []).includes(option)}
+                    onChange={(e) => {
+                      const currentValues = value || [];
+                      if (e.target.checked) {
+                        handleInputChange(field.id, [...currentValues, option]);
+                      } else {
+                        handleInputChange(
+                          field.id,
+                          currentValues.filter((v: string) => v !== option)
+                        );
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{option}</span>
+                </label>
+              ))}
+              {field.allow_other && (
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showOtherInputMulti}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        [`${field.id}_other`]: e.target.checked,
+                      }));
+                      if (!e.target.checked) {
+                        handleInputChange(field.id, value?.filter((v: string) => v !== "Other") || []);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">Other</span>
+                </label>
+              )}
+            </div>
+            {field.allow_other && showOtherInputMulti && (
+              <input
+                type="text"
+                value={formData[`${field.id}_other_text`] || ""}
+                onChange={(e) => 
+                  setFormData((prev) => ({
+                    ...prev,
+                    [`${field.id}_other_text`]: e.target.value,
+                  }))
+                }
+                placeholder="Please specify..."
+                required={field.required && showOtherInputMulti}
                 className={baseInputClasses}
                 autoFocus
               />

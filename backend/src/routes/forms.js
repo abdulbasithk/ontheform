@@ -62,7 +62,7 @@ const validateForm = [
     .notEmpty()
     .withMessage('Field ID is required'),
   body('fields.*.type')
-    .isIn(['text', 'email', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'file'])
+    .isIn(['text', 'email', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'file', 'multiselect'])
     .withMessage('Invalid field type'),
   body('fields.*.label')
     .trim()

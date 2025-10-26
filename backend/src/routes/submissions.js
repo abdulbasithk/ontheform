@@ -167,13 +167,16 @@ const validateFormResponses = async (formId, responses) => {
       }
     }
 
-    // Validate checkbox options
-    if (field.type === 'checkbox' && responses[field.id]) {
+    // Validate checkbox and multiselect options
+    if ((field.type === 'checkbox' || field.type === 'multiselect') && responses[field.id]) {
       const values = Array.isArray(responses[field.id]) ? responses[field.id] : [responses[field.id]];
       if (field.options) {
         for (const value of values) {
           if (!field.options.includes(value)) {
-            errors.push(`${field.label} contains an invalid option: ${value}`);
+            // If allow_other is true, we can accept other values
+            if (!field.allow_other) {
+              errors.push(`${field.label} contains an invalid option: ${value}`);
+            }
           }
         }
       }

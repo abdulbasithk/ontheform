@@ -86,6 +86,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
       case 'number': return Hash;
       case 'date': return Calendar;
       case 'select': return List;
+      case 'multiselect': return List;
       case 'checkbox': return CheckSquare;
       case 'file': return Upload;
       default: return Type;
@@ -167,6 +168,40 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 </option>
               ))}
             </select>
+          </div>
+        );
+
+      case 'multiselect':
+        return (
+          <div key={field.id} className="space-y-3">
+            <label className={labelClasses}>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-gray-500" />
+                {field.label}
+                {field.required && <span className="text-red-500">*</span>}
+              </div>
+            </label>
+            <div className="space-y-2">
+              {field.options?.map((option) => (
+                <label key={option} className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    value={option}
+                    checked={(value || []).includes(option)}
+                    onChange={(e) => {
+                      const currentValues = value || [];
+                      if (e.target.checked) {
+                        handleInputChange(field.id, [...currentValues, option]);
+                      } else {
+                        handleInputChange(field.id, currentValues.filter((v: string) => v !== option));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{option}</span>
+                </label>
+              ))}
+            </div>
           </div>
         );
 

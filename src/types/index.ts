@@ -7,7 +7,7 @@ export interface User {
 
 export interface FormField {
   id: string;
-  type: 'text' | 'email' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'number' | 'date' | 'file';
+  type: 'text' | 'email' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'number' | 'date' | 'file';
   label: string;
   secondary_label?: string;
   placeholder?: string;
