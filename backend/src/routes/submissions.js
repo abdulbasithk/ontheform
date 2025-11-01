@@ -755,7 +755,7 @@ router.get('/export/form/:formId', authenticateToken, validateUUID, handleValida
           const fileUrl = process.env.BACKEND_URL 
             ? `${process.env.BACKEND_URL}${value.path}`
             : value.path;
-          rowData[field.id] = `${value.filename}\n(Link: ${fileUrl})`;
+          rowData[field.id] = `${fileUrl}`;
         } else {
           rowData[field.id] = '';
         }

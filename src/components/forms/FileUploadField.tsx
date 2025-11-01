@@ -115,13 +115,19 @@ export function FileUploadField({
     onChange(null);
   };
 
+  // Check if the actual file is an image
+  const isImageFile = (file: File | null): boolean => {
+    if (!file) return false;
+    return file.type.startsWith('image/');
+  };
+
   return (
     <div className="space-y-2">
 
       {/* File Preview */}
       {(value || previewUrl) && (
         <div className="mb-4 relative">
-          {isImageAccept && (previewUrl || value) ? (
+          {isImageFile(value) || (previewUrl && isImageAccept) ? (
             <div className="relative inline-block">
               <img
                 src={previewUrl || (value ? URL.createObjectURL(value) : '')}
