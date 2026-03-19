@@ -53,7 +53,7 @@ const parseTextWithLinks = (text: string) => {
 export function PublicFormPage({
   formId,
   form: preloadedForm,
-}: PublicFormPageProps) {
+}: Readonly<PublicFormPageProps>) {
   const [form, setForm] = useState<Form | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [filesMap, setFilesMap] = useState<Record<string, File>>({});
@@ -74,23 +74,41 @@ export function PublicFormPage({
         setError(null);
 
         // Use preloaded form if available, otherwise fetch from API
-        if (preloadedForm && preloadedForm.is_active) {
-          setForm(preloadedForm);
-        } else if(preloadedForm && !preloadedForm.is_active){
+        let formToLoad = null;
+        
+        if (preloadedForm?.is_active) {
+          formToLoad = preloadedForm;
+        } else if (preloadedForm && !preloadedForm.is_active) {
           setError(
             "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
           );
-        } 
-        else {
+          return;
+        } else {
           const response = await FormsService.getForm(formId);
-          if (response.form && response.form.is_active) {
-            setForm(response.form);
+          if (response.form?.is_active) {
+            formToLoad = response.form;
           } else {
             setError(
               "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
             );
+            return;
           }
         }
+
+        // Check if max submissions have been reached
+        if (
+          formToLoad &&
+          formToLoad.max_submission_count !== undefined &&
+          formToLoad.max_submission_count !== null &&
+          formToLoad.submission_count >= formToLoad.max_submission_count
+        ) {
+          setError(
+            "This form has reached its maximum number of submissions. Thank you for your interest!"
+          );
+          return;
+        }
+
+        setForm(formToLoad);
       } catch (error) {
         const errorMessage = FormsService.handleApiError(error);
         setError(errorMessage);
