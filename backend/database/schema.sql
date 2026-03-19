@@ -30,6 +30,7 @@ CREATE TABLE forms (
     fields JSONB NOT NULL DEFAULT '[]',
     is_active BOOLEAN DEFAULT true,
     submission_count INTEGER DEFAULT 0,
+  max_submission_count INTEGER DEFAULT 0,
     unique_constraint_type VARCHAR(50) DEFAULT 'none', -- 'none', 'ip', 'field'
     unique_constraint_field VARCHAR(255), -- field ID when type is 'field'
     banner_url TEXT, -- URL to the banner image

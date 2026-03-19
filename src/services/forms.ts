@@ -138,6 +138,7 @@ export class FormsService {
   static async updateFormSettings(id: string, settings: {
     uniqueConstraintType?: 'none' | 'ip' | 'field';
     uniqueConstraintField?: string;
+    maxSubmissions?: number;
     showQrCode?: boolean;
     sendEmailNotification?: boolean;
     showTermsCheckbox?: boolean;

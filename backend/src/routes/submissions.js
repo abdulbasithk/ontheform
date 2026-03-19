@@ -113,7 +113,7 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
   try {
     // Get form and validate it exists and is active
     const formResult = await query(
-      'SELECT id, title, fields, unique_constraint_type, unique_constraint_field, show_qr_code, send_email_notification, banner_url FROM forms WHERE id = $1 AND is_active = true',
+      'SELECT id, title, fields, unique_constraint_type, unique_constraint_field, show_qr_code, send_email_notification, banner_url, max_submission_count FROM forms WHERE id = $1 AND is_active = true',
       [formId]
     );
 
@@ -122,6 +122,18 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
     }
 
     const form = formResult.rows[0];
+
+    // Enforce total submission limit when configured (> 0)
+    if (form.max_submission_count > 0) {
+      const totalSubmissionsResult = await query(
+        'SELECT COUNT(*)::int AS total_submissions FROM form_submissions WHERE form_id = $1',
+        [formId]
+      );
+
+      if (totalSubmissionsResult.rows[0].total_submissions >= form.max_submission_count) {
+        throw new AppError('This form has reached its submission limit', 409, 'SUBMISSION_LIMIT_REACHED');
+      }
+    }
 
     // Check unique constraints
     if (form.unique_constraint_type && form.unique_constraint_type !== 'none') {
@@ -246,7 +258,7 @@ router.post('/', validateSubmission, handleValidationErrors, asyncHandler(async 
         validationErrors: error.details
       });
     }
-    if (error.code === 'DUPLICATE_SUBMISSION') {
+    if (error.code === 'DUPLICATE_SUBMISSION' || error.code === 'SUBMISSION_LIMIT_REACHED') {
       return res.status(409).json({
         error: error.message,
         code: error.code

@@ -13,6 +13,7 @@ interface FormSettingsProps {
 export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: FormSettingsProps) {
   const [form, setForm] = useState<Form>(initialForm);
 
+  const [maxSubmissions, setMaxSubmissions] = useState<number>(0);
   const [uniqueConstraintType, setUniqueConstraintType] = useState<'none' | 'ip' | 'field'>('none');
   const [uniqueConstraintField, setUniqueConstraintField] = useState<string>('');
   const [showQrCode, setShowQrCode] = useState<boolean>(false);
@@ -30,6 +31,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   useEffect(() => {
     if (isOpen && initialForm) {
       setForm(initialForm);
+      setMaxSubmissions(initialForm.max_submission_count ?? 0);
       setUniqueConstraintType(initialForm.unique_constraint_type || 'none');
       setUniqueConstraintField(initialForm.unique_constraint_field || '');
       setShowQrCode(initialForm.show_qr_code || false);
@@ -53,7 +55,12 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
     setIsLoading(true);
 
     try {
+      if (!Number.isInteger(maxSubmissions) || maxSubmissions < 0) {
+        throw new Error('Maximum submissions must be a non-negative whole number');
+      }
+
       const settings = {
+        maxSubmissions,
         uniqueConstraintType,
         uniqueConstraintField: uniqueConstraintType === 'field' ? uniqueConstraintField : undefined,
         showQrCode,
@@ -168,6 +175,31 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
 
               {/* Form Settings */}
                <div className="mb-6">
+                 <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Submissions
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={maxSubmissions}
+                      onChange={(e) => {
+                        const parsed = Number(e.target.value);
+                        if (Number.isNaN(parsed)) {
+                          setMaxSubmissions(0);
+                          return;
+                        }
+                        setMaxSubmissions(Math.max(0, Math.floor(parsed)));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={isLoading}
+                    />
+                    <p className="mt-2 text-xs text-gray-600">
+                      Set to 0 for unlimited submissions. Current submissions: {form.submission_count || 0}
+                    </p>
+                 </div>
+
                  {/* Unique Constraint Type */}
                  <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -404,6 +436,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
                       <div className="text-sm text-blue-800">
                         <p className="font-medium mb-1">Important Notes:</p>
                         <ul className="space-y-1 text-xs">
+                          <li>• 0 submission limit means unlimited responses</li>
                           <li>• Unique constraints only apply to new submissions</li>
                           <li>• QR codes contain the unique submission ID for easy reference</li>
                           <li>• Email notifications require users to provide an email address</li>
@@ -420,7 +453,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
               <button
                 type="submit"
-                disabled={isLoading || (uniqueConstraintType === 'field' && !uniqueConstraintField)}
+                disabled={isLoading || (uniqueConstraintType === 'field' && !uniqueConstraintField) || maxSubmissions < 0}
                 className="w-full inline-flex justify-center items-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (

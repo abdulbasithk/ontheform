@@ -170,7 +170,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   // Get forms with pagination
   const formsResult = await query(
     `SELECT 
-      id, title, description, fields, is_active, submission_count,
+      id, title, description, fields, is_active, submission_count, max_submission_count,
       unique_constraint_type, unique_constraint_field, banner_url,
       show_qr_code, send_email_notification, is_displayed,
       show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
@@ -210,7 +210,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
   try {
     const result = await query(
       `SELECT 
-        id, title, description, fields, is_active, submission_count,
+        id, title, description, fields, is_active, submission_count, max_submission_count,
         unique_constraint_type, unique_constraint_field, banner_url,
         show_qr_code, send_email_notification, is_displayed,
         show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
@@ -249,7 +249,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
 router.get('/:id', validateUUID, handleValidationErrors, optionalAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   
-  let selectClause = 'id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, created_at, updated_at';
+  let selectClause = 'id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, created_at, updated_at';
   let whereClause = 'WHERE id = $1';
   let queryParams = [id];
 
@@ -307,7 +307,7 @@ router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncH
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, is_displayed, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
     [formId, title, description, JSON.stringify(fields), isActive, isDisplayed, req.user.id]
   );
 
@@ -364,7 +364,7 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
     `UPDATE forms 
      SET title = $1, description = $2, fields = $3, is_active = $4, is_displayed = $5, updated_at = CURRENT_TIMESTAMP
      WHERE id = $6
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
     [title, description, JSON.stringify(fields), isActive, isDisplayed, id]
   );
 
@@ -380,6 +380,7 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
 router.put('/:id/settings', authenticateToken, validateUUID, [
   body('uniqueConstraintType').optional().isIn(['none', 'ip', 'field']).withMessage('Invalid unique constraint type'),
   body('uniqueConstraintField').optional().isString().withMessage('Unique constraint field must be a string'),
+  body('maxSubmissions').optional().isInt({ min: 0 }).withMessage('Maximum submissions must be a non-negative integer'),
   body('showQrCode').optional().isBoolean().withMessage('Show QR code must be a boolean'),
   body('sendEmailNotification').optional().isBoolean().withMessage('Send email notification must be a boolean'),
   body('showTermsCheckbox').optional().isBoolean().withMessage('Show terms checkbox must be a boolean'),
@@ -389,7 +390,7 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
   body('termsLinkText').optional().isString().withMessage('Terms link text must be a string')
 ], handleValidationErrors, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { uniqueConstraintType, uniqueConstraintField, showQrCode, sendEmailNotification, showTermsCheckbox, termsText, termsSecondaryText, termsLinkUrl, termsLinkText } = req.body;
+  const { uniqueConstraintType, uniqueConstraintField, maxSubmissions, showQrCode, sendEmailNotification, showTermsCheckbox, termsText, termsSecondaryText, termsLinkUrl, termsLinkText } = req.body;
 
   // Check if form exists and user owns it (or is super admin)
   const existingForm = await checkFormOwnership(id, req.user.id, req.user.role);
@@ -436,6 +437,12 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
   if (uniqueConstraintField !== undefined) {
     updateFields.push(`unique_constraint_field = $${paramIndex}`);
     updateValues.push(uniqueConstraintField);
+    paramIndex++;
+  }
+
+  if (maxSubmissions !== undefined) {
+    updateFields.push(`max_submission_count = $${paramIndex}`);
+    updateValues.push(maxSubmissions);
     paramIndex++;
   }
 
@@ -493,7 +500,7 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
     `UPDATE forms 
      SET ${updateFields.join(', ')}
      WHERE id = $${paramIndex}
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     updateValues
   );
 
@@ -545,7 +552,7 @@ router.post('/:id/banner', authenticateToken, validateUUID, upload.single('banne
     `UPDATE forms 
      SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [bannerUrl, id]
   );
 
@@ -590,7 +597,7 @@ router.delete('/:id/banner', authenticateToken, validateUUID, asyncHandler(async
     `UPDATE forms 
      SET banner_url = NULL, updated_at = CURRENT_TIMESTAMP
      WHERE id = $1
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [id]
   );
 
@@ -724,7 +731,7 @@ router.patch('/:id/display', authenticateToken, validateUUID, handleValidationEr
     `UPDATE forms 
      SET is_displayed = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [newDisplayStatus, id]
   );
 
@@ -773,7 +780,7 @@ router.post('/:id/duplicate', authenticateToken, validateUUID, handleValidationE
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, created_by)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, title, description, fields, is_active, submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
     [newFormId, newTitle, form.description, JSON.stringify(form.fields), false, req.user.id] // Set as inactive by default
   );
 

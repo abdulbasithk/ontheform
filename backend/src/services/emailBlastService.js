@@ -1,10 +1,17 @@
 const emailService = require("./emailService");
 const queueService = require("./queueService");
 const { v4: uuidv4 } = require("uuid");
+const sgMail = require("@sendgrid/mail");
 
 class EmailBlastService {
   constructor() {
     this.activeBlasts = new Map(); // Track active blasts
+
+    const sendGridApiKey = process.env.SENDGRID_API_KEY;
+    if (!sendGridApiKey) {
+      throw new Error("SENDGRID_API_KEY environment variable is required");
+    }
+    sgMail.setApiKey(sendGridApiKey);
   }
 
   // Replace placeholders in email content with actual data
@@ -257,43 +264,31 @@ class EmailBlastService {
     `;
   }
 
-  // Send individual email using Kirim.email
+  // Send individual email using SendGrid
   async sendEmail(recipientEmail, subject, htmlContent) {
     try {
-      const axios = require("axios");
-
-      const requestData = new URLSearchParams({
-        from: emailService.fromEmail,
+      const [response] = await sgMail.send({
         to: recipientEmail,
-        subject: subject,
-        text: htmlContent,
+        from: {
+          email: emailService.fromEmail,
+          name: emailService.fromName || "OnTheForm",
+        },
+        subject,
+        html: htmlContent,
       });
 
-      const headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        domain: emailService.emailDomain,
-      };
-
-      const config = {
-        method: "post",
-        url: "https://smtp-app.kirim.email/api/v4/transactional/message",
-        headers: headers,
-        auth: {
-          username: emailService.apiKey,
-          password: emailService.secret,
-        },
-        data: requestData,
-      };
-
-      const response = await axios(config);
+      const messageId =
+        response?.headers?.["x-message-id"] ||
+        response?.headers?.["X-Message-Id"] ||
+        "unknown";
 
       return {
         success: true,
-        messageId: response.data.id || "unknown",
-        status: response.status,
+        messageId,
+        status: response?.statusCode || 202,
       };
     } catch (error) {
-      console.error("Error sending email:", error.message);
+      console.error("Error sending email:", error?.response?.body || error.message);
       throw error;
     }
   }

@@ -1,4 +1,4 @@
-const axios = require('axios');
+const sgMail = require('@sendgrid/mail');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -6,25 +6,20 @@ require('dotenv').config();
 // Email service configuration
 class EmailService {
   constructor() {
-    // Configure Kirim.email
-    const apiKey = process.env.KIRIM_EMAIL_API_KEY;
-    const secret = process.env.KIRIM_EMAIL_SECRET;
+    const sendGridApiKey = process.env.SENDGRID_API_KEY;
     
-    if (!apiKey || !secret) {
-      console.error('KIRIM_EMAIL_API_KEY and KIRIM_EMAIL_SECRET environment variables are required');
-      throw new Error('Kirim.email credentials are required');
+    if (!sendGridApiKey) {
+      console.error('SENDGRID_API_KEY environment variable is required');
+      throw new Error('SendGrid credentials are required');
     }
+
+    sgMail.setApiKey(sendGridApiKey);
     
-    this.apiKey = apiKey;
-    this.secret = secret;
-    
-    // Configure email settings from environment variables
     this.fromEmail = process.env.EMAIL_FROM || 'no-reply@sodtix.com';
-    this.emailDomain = process.env.EMAIL_DOMAIN || 'sodtix.com';
+    this.fromName = process.env.EMAIL_FROM_NAME || 'OnTheForm';
     
-    console.log('📧 Email service initialized with Kirim.email');
+    console.log('📧 Email service initialized with SendGrid');
     console.log(`📧 From email: ${this.fromEmail}`);
-    console.log(`📧 Email domain: ${this.emailDomain}`);
   }
 
   // Generate QR code as buffer for email attachment
@@ -176,49 +171,35 @@ class EmailService {
         </html>
       `;
 
-      // Send email using Kirim.email API with inline QR code image
-      const requestData = new URLSearchParams({
-        from: this.fromEmail,
+      const [response] = await sgMail.send({
         to: recipientEmail,
-        subject: `Form Submission Confirmation - ${formTitle}`,
-        text: htmlContent
-      });
-      
-      const headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'domain': this.emailDomain
-      };
-
-      const config = {
-        method: 'post',
-        url: 'https://smtp-app.kirim.email/api/v4/transactional/message',
-        headers: headers,
-        auth: {
-          username: this.apiKey,
-          password: this.secret
+        from: {
+          email: this.fromEmail,
+          name: this.fromName
         },
-        data: requestData
-      };
+        subject: `Form Submission Confirmation - ${formTitle}`,
+        html: htmlContent
+      });
 
-      const response = await axios(config);
-      
-      console.log('📧 Email sent successfully via Kirim.email:', {
-        status: response.status,
+      const messageId = response?.headers?.['x-message-id'] || response?.headers?.['X-Message-Id'] || 'unknown';
+
+      console.log('📧 Email sent successfully via SendGrid:', {
+        status: response?.statusCode,
         recipient: recipientEmail,
-        data: response.data
+        messageId
       });
 
       // QR code files are now permanent public files, no cleanup needed
 
       return {
         success: true,
-        messageId: response.data.id || 'unknown',
-        status: response.status,
-        data: response.data
+        messageId,
+        status: response?.statusCode || 202,
+        data: response?.headers || {}
       };
     } catch (error) {
       console.error('Error sending submission confirmation email:', {
-        error: error.message,
+        error: error?.response?.body || error.message,
         recipient: recipientEmail,
         formTitle,
         submissionId

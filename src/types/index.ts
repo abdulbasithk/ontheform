@@ -26,6 +26,7 @@ export interface Form {
   is_active: boolean;
   is_displayed?: boolean;
   submission_count: number;
+  max_submission_count?: number;
   unique_constraint_type?: 'none' | 'ip' | 'field';
   unique_constraint_field?: string;
   banner_url?: string;
