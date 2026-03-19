@@ -279,173 +279,160 @@ router.post(
             "SUBMISSION_LIMIT_REACHED",
           );
         }
-        // Process uploaded files and map them to responses
-        if (req.files && req.files.length > 0) {
-          for (const file of req.files) {
-            // file.fieldname corresponds to the form field ID
-            const fieldId = file.fieldname;
+      }
 
-            // Store the file path in responses
-            const fileUrl = `/api/submissions/uploads/submissions/${file.filename}`;
-            responses[fieldId] = {
-              filename: file.originalname,
-              path: fileUrl,
-              mimetype: file.mimetype,
-              size: file.size,
-            };
-          }
+      // Process uploaded files and map them to responses
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          // file.fieldname corresponds to the form field ID
+          const fieldId = file.fieldname;
+
+          // Store the file path in responses
+          const fileUrl = `/api/submissions/uploads/submissions/${file.filename}`;
+          responses[fieldId] = {
+            filename: file.originalname,
+            path: fileUrl,
+            mimetype: file.mimetype,
+            size: file.size,
+          };
         }
+      }
 
-        // Check unique constraints
-        if (
-          form.unique_constraint_type &&
-          form.unique_constraint_type !== "none"
-        ) {
-          let constraintQuery = "";
-          let constraintParams = [formId];
-          let constraintMessage = "";
+      // Check unique constraints
+      if (form.unique_constraint_type && form.unique_constraint_type !== "none") {
+        let constraintQuery = "";
+        let constraintParams = [formId];
+        let constraintMessage = "";
 
-          switch (form.unique_constraint_type) {
-            case "ip":
-              constraintQuery =
-                "SELECT id FROM form_submissions WHERE form_id = $1 AND submitter_ip = $2";
-              constraintParams.push(submitterIp);
-              constraintMessage =
-                "You have already submitted this form from this IP address";
-              break;
+        switch (form.unique_constraint_type) {
+          case "ip":
+            constraintQuery =
+              "SELECT id FROM form_submissions WHERE form_id = $1 AND submitter_ip = $2";
+            constraintParams.push(submitterIp);
+            constraintMessage =
+              "You have already submitted this form from this IP address";
+            break;
 
-            case "field":
-              const uniqueFieldValue = responses[form.unique_constraint_field];
-              if (!uniqueFieldValue) {
-                throw new AppError(
-                  "Required unique field is missing",
-                  400,
-                  "UNIQUE_FIELD_REQUIRED",
-                );
-              }
-              constraintQuery = `SELECT id FROM form_submissions WHERE form_id = $1 AND responses->>'${form.unique_constraint_field}' = $2`;
-
-              // Handle both string and object responses
-              let valueToCheck =
-                typeof uniqueFieldValue === "object"
-                  ? JSON.stringify(uniqueFieldValue)
-                  : String(uniqueFieldValue);
-              constraintParams.push(valueToCheck);
-              constraintMessage = "A submission with this value already exists";
-              break;
-          }
-
-          if (constraintQuery) {
-            const existingSubmission = await query(
-              constraintQuery,
-              constraintParams,
-            );
-            if (existingSubmission.rows.length > 0) {
+          case "field": {
+            const uniqueFieldValue = responses[form.unique_constraint_field];
+            if (!uniqueFieldValue) {
               throw new AppError(
-                constraintMessage,
-                409,
-                "DUPLICATE_SUBMISSION",
-              );
-            }
-          }
-        }
-
-        // Validate form responses (including files)
-        await validateFormResponses(formId, responses);
-
-        // Extract and validate email from form fields
-        let submitterEmail = null;
-        for (const field of form.fields) {
-          if (field.type === "email" && responses[field.id]) {
-            const emailValue = responses[field.id].trim();
-            // Basic email validation
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (emailRegex.test(emailValue)) {
-              submitterEmail = emailValue.toLowerCase();
-              break; // Use the first valid email field found
-            } else {
-              throw new AppError(
-                `Invalid email format in field: ${field.label}`,
+                "Required unique field is missing",
                 400,
-                "INVALID_EMAIL_FORMAT",
+                "UNIQUE_FIELD_REQUIRED",
               );
             }
+            constraintQuery = `SELECT id FROM form_submissions WHERE form_id = $1 AND responses->>'${form.unique_constraint_field}' = $2`;
+
+            // Handle both string and object responses
+            const valueToCheck =
+              typeof uniqueFieldValue === "object"
+                ? JSON.stringify(uniqueFieldValue)
+                : String(uniqueFieldValue);
+            constraintParams.push(valueToCheck);
+            constraintMessage = "A submission with this value already exists";
+            break;
           }
         }
 
-        // Create submission
-        const submissionId = uuidv4();
-        const result = await query(
-          `INSERT INTO form_submissions (id, form_id, responses, submitter_email, submitter_ip, user_agent)
+        if (constraintQuery) {
+          const existingSubmission = await query(constraintQuery, constraintParams);
+          if (existingSubmission.rows.length > 0) {
+            throw new AppError(constraintMessage, 409, "DUPLICATE_SUBMISSION");
+          }
+        }
+      }
+
+      // Validate form responses (including files)
+      await validateFormResponses(formId, responses);
+
+      // Extract and validate email from form fields
+      let submitterEmail = null;
+      for (const field of form.fields) {
+        if (field.type === "email" && responses[field.id]) {
+          const emailValue = responses[field.id].trim();
+          // Basic email validation
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (emailRegex.test(emailValue)) {
+            submitterEmail = emailValue.toLowerCase();
+            break; // Use the first valid email field found
+          }
+          throw new AppError(
+            `Invalid email format in field: ${field.label}`,
+            400,
+            "INVALID_EMAIL_FORMAT",
+          );
+        }
+      }
+
+      // Create submission
+      const submissionId = uuidv4();
+      const result = await query(
+        `INSERT INTO form_submissions (id, form_id, responses, submitter_email, submitter_ip, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, form_id, responses, submitter_email, submitted_at`,
-          [
-            submissionId,
-            formId,
-            JSON.stringify(responses),
-            submitterEmail,
-            submitterIp,
-            userAgent,
-          ],
-        );
+        [
+          submissionId,
+          formId,
+          JSON.stringify(responses),
+          submitterEmail,
+          submitterIp,
+          userAgent,
+        ],
+      );
 
-        const submission = result.rows[0];
+      const submission = result.rows[0];
 
-        // Update form submission count
-        await query(
-          "UPDATE forms SET submission_count = submission_count + 1 WHERE id = $1",
-          [formId],
-        );
+      // submission_count is maintained by DB trigger update_submission_count_trigger
 
-        // Prepare response data
-        const responseData = {
-          message: "Form submitted successfully",
-          submission: {
-            id: submission.id,
-            formId: submission.form_id,
-            submittedAt: submission.submitted_at,
-          },
-        };
+      // Prepare response data
+      const responseData = {
+        message: "Form submitted successfully",
+        submission: {
+          id: submission.id,
+          formId: submission.form_id,
+          submittedAt: submission.submitted_at,
+        },
+      };
 
-        // Generate QR code if enabled
-        if (form.show_qr_code) {
-          try {
-            const qrCodeDataURL = await QRCode.toDataURL(submissionId, {
-              width: 200,
-              margin: 2,
-              color: {
-                dark: "#000000",
-                light: "#FFFFFF",
-              },
-            });
-            responseData.qrCode = qrCodeDataURL;
-          } catch (error) {
-            console.error("Error generating QR code:", error);
-            // Don't fail the submission if QR code generation fails
-          }
+      // Generate QR code if enabled
+      if (form.show_qr_code) {
+        try {
+          const qrCodeDataURL = await QRCode.toDataURL(submissionId, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: "#000000",
+              light: "#FFFFFF",
+            },
+          });
+          responseData.qrCode = qrCodeDataURL;
+        } catch (error) {
+          console.error("Error generating QR code:", error);
+          // Don't fail the submission if QR code generation fails
         }
-
-        // Send email notification if enabled
-        if (form.send_email_notification && submitterEmail) {
-          try {
-            await emailService.sendSubmissionConfirmation({
-              recipientEmail: submitterEmail,
-              formTitle: form.title,
-              submissionId: submissionId,
-              showQrCode: form.show_qr_code,
-              bannerUrl: form.banner_url,
-            });
-            responseData.emailSent = true;
-          } catch (error) {
-            console.error("Error sending email notification:", error);
-            // Don't fail the submission if email sending fails
-            responseData.emailSent = false;
-            responseData.emailError = "Failed to send confirmation email";
-          }
-        }
-
-        res.status(201).json(responseData);
       }
+
+      // Send email notification if enabled
+      if (form.send_email_notification && submitterEmail) {
+        try {
+          await emailService.sendSubmissionConfirmation({
+            recipientEmail: submitterEmail,
+            formTitle: form.title,
+            submissionId: submissionId,
+            showQrCode: form.show_qr_code,
+            bannerUrl: form.banner_url,
+          });
+          responseData.emailSent = true;
+        } catch (error) {
+          console.error("Error sending email notification:", error);
+          // Don't fail the submission if email sending fails
+          responseData.emailSent = false;
+          responseData.emailError = "Failed to send confirmation email";
+        }
+      }
+
+      res.status(201).json(responseData);
     } catch (error) {
       if (error.code === "FORM_VALIDATION_ERROR") {
         return res.status(400).json({
