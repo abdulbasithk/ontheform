@@ -1,7 +1,8 @@
-import { AlertCircle, Loader, Save, X } from 'lucide-react';
+import { AlertCircle, Download, Loader, Save, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { FormField, FormSubmission } from '../../types';
 import SubmissionsService from '../../services/submissions';
+import { getFileUrl } from '../../services/api';
 
 interface SubmissionEditModalProps {
   submission: FormSubmission;
@@ -142,6 +143,57 @@ export function SubmissionEditModal({ submission, formFields, onClose, onSuccess
           </div>
         );
 
+      case 'multiselect':
+        const multiselectValues = Array.isArray(value) ? value : [];
+        const showOtherMulti = responses[`${field.id}_other`] === true;
+        return (
+          <div className="space-y-2">
+            {field.options?.map((option, index) => (
+              <label key={index} className="flex items-center">
+                <input
+                  type="checkbox"
+                  value={option}
+                  checked={multiselectValues.includes(option)}
+                  onChange={(e) => {
+                    const newValues = e.target.checked
+                      ? [...multiselectValues, option]
+                      : multiselectValues.filter(v => v !== option);
+                    handleInputChange(field.id, newValues);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={isLoading}
+                />
+                <span className="ml-2 text-sm text-gray-700">{option}</span>
+              </label>
+            ))}
+            {field.allow_other && (
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showOtherMulti}
+                  onChange={(e) => {
+                    handleInputChange(`${field.id}_other`, e.target.checked);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={isLoading}
+                />
+                <span className="ml-2 text-sm text-gray-700">Other</span>
+              </label>
+            )}
+            {field.allow_other && showOtherMulti && (
+              <input
+                type="text"
+                value={responses[`${field.id}_other_text`] || ''}
+                onChange={(e) => handleInputChange(`${field.id}_other_text`, e.target.value)}
+                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Please specify"
+                disabled={isLoading}
+                required={field.required && showOtherMulti}
+              />
+            )}
+          </div>
+        );
+
       case 'radio':
         return (
           <div className="space-y-2">
@@ -198,6 +250,41 @@ export function SubmissionEditModal({ submission, formFields, onClose, onSuccess
             disabled={isLoading}
             required={field.required}
           />
+        );
+
+      case 'file':
+        // File field is read-only in submissions
+        const fileData = typeof value === 'object' && value?.path ? value : null;
+        return (
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            {fileData ? (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="font-medium text-gray-700">File: </span>
+                  <span className="text-gray-900">{fileData.filename}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium text-gray-700">Size: </span>
+                  <span className="text-gray-900">
+                    {(fileData.size / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                </div>
+                <div>
+                  <a
+                    href={getFileUrl(fileData.path)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Download size={16} className="mr-2" />
+                    Download File
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No file uploaded</p>
+            )}
+          </div>
         );
 
       default:

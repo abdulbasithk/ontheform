@@ -10,12 +10,14 @@ import {
   MessageSquare,
   Send,
   Type,
+  Upload,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import FormsService from "../../services/forms";
 import SubmissionsService from "../../services/submissions";
 import { getBannerUrl } from "../../services/api";
 import { Form, FormField } from "../../types";
+import { FileUploadField } from "../forms/FileUploadField";
 
 interface PublicFormPageProps {
   formId: string;
@@ -54,6 +56,7 @@ export function PublicFormPage({
 }: PublicFormPageProps) {
   const [form, setForm] = useState<Form | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [filesMap, setFilesMap] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +78,7 @@ export function PublicFormPage({
           setForm(preloadedForm);
         } else if(preloadedForm && !preloadedForm.is_active){
           setError(
-            "For any assistance or inquiries, please contact your Epson sales representative directly."
+            "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
           );
         } 
         else {
@@ -84,7 +87,7 @@ export function PublicFormPage({
             setForm(response.form);
           } else {
             setError(
-              "For any assistance or inquiries, please contact your Epson sales representative directly."
+              "For any assistance or inquiries, please contact your hello.ontheground@gmail.com"
             );
           }
         }
@@ -100,10 +103,33 @@ export function PublicFormPage({
   }, [formId, preloadedForm]);
 
   const handleInputChange = (fieldId: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
+    // Check if the value is a File object
+    if (value instanceof File) {
+      setFilesMap((prev) => ({
+        ...prev,
+        [fieldId]: value,
+      }));
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: value.name,
+      }));
+    } else if (value === null) {
+      // File was removed
+      setFilesMap((prev) => {
+        const newFiles = { ...prev };
+        delete newFiles[fieldId];
+        return newFiles;
+      });
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: "",
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [fieldId]: value,
+      }));
+    }
 
     // Clear validation error when user starts typing
     if (validationErrors[fieldId]) {
@@ -160,14 +186,18 @@ export function PublicFormPage({
 
     try {
       // Submit to backend
-      const response = await SubmissionsService.submitForm({
-        formId: form!.id,
-        responses: formData,
-      });
+      const response = await SubmissionsService.submitForm(
+        {
+          formId: form!.id,
+          responses: formData,
+        },
+        Object.keys(filesMap).length > 0 ? filesMap : undefined
+      );
 
       setSubmissionResponse(response);
       setSubmitted(true);
       setFormData({});
+      setFilesMap({});
     } catch (error) {
       const errorMessage = SubmissionsService.handleApiError(error);
       setError(errorMessage);
@@ -188,8 +218,12 @@ export function PublicFormPage({
         return Calendar;
       case "select":
         return List;
+      case "multiselect":
+        return List;
       case "checkbox":
         return CheckSquare;
+      case "file":
+        return Upload;
       default:
         return Type;
     }
@@ -363,6 +397,100 @@ export function PublicFormPage({
           </div>
         );
 
+      case "multiselect":
+        const showOtherInputMulti = formData[`${field.id}_other`] === true;
+        return (
+          <div key={field.id} className="space-y-3">
+            <label className={labelClasses}>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-gray-500" />
+                <div>
+                  <div>
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </div>
+                  {field.secondary_label && (
+                    <div className="text-sm text-gray-600 italic">
+                      {field.secondary_label}
+                      {field.required && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </label>
+            <div className="space-y-2">
+              {field.options?.map((option) => (
+                <label
+                  key={option}
+                  className="flex items-center space-x-3 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    value={option}
+                    checked={(value || []).includes(option)}
+                    onChange={(e) => {
+                      const currentValues = value || [];
+                      if (e.target.checked) {
+                        handleInputChange(field.id, [...currentValues, option]);
+                      } else {
+                        handleInputChange(
+                          field.id,
+                          currentValues.filter((v: string) => v !== option)
+                        );
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{option}</span>
+                </label>
+              ))}
+              {field.allow_other && (
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showOtherInputMulti}
+                    onChange={(e) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        [`${field.id}_other`]: e.target.checked,
+                      }));
+                      if (!e.target.checked) {
+                        handleInputChange(field.id, value?.filter((v: string) => v !== "Other") || []);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">Other</span>
+                </label>
+              )}
+            </div>
+            {field.allow_other && showOtherInputMulti && (
+              <input
+                type="text"
+                value={formData[`${field.id}_other_text`] || ""}
+                onChange={(e) => 
+                  setFormData((prev) => ({
+                    ...prev,
+                    [`${field.id}_other_text`]: e.target.value,
+                  }))
+                }
+                placeholder="Please specify..."
+                required={field.required && showOtherInputMulti}
+                className={baseInputClasses}
+                autoFocus
+              />
+            )}
+            {hasError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle size={14} />
+                {validationErrors[field.id]}
+              </p>
+            )}
+          </div>
+        );
+
       case "radio":
         return (
           <div key={field.id} className="space-y-3">
@@ -489,6 +617,42 @@ export function PublicFormPage({
               onChange={(e) => handleInputChange(field.id, e.target.value)}
               required={field.required}
               className={baseInputClasses}
+            />
+            {hasError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <AlertCircle size={14} />
+                {validationErrors[field.id]}
+              </p>
+            )}
+          </div>
+        );
+
+      case "file":
+        return (
+          <div key={field.id} className="space-y-2">
+            <label className={labelClasses}>
+              <div className="flex items-center gap-2">
+                <Icon size={16} className="text-gray-500" />
+                <div>
+                  <div>
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </div>
+                  {field.secondary_label && (
+                    <div className="text-sm text-gray-600 italic">
+                      {field.secondary_label}
+                      {field.required && (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </label>
+            <FileUploadField
+              field={field}
+              value={filesMap[field.id] || null}
+              onChange={(file) => handleInputChange(field.id, file)}
             />
             {hasError && (
               <p className="text-sm text-red-600 flex items-center gap-1">

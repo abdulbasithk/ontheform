@@ -29,3 +29,6 @@ dist-ssr
 backend.zip
 Oracle.key
 *.env
+
+backend/uploads
+.github/

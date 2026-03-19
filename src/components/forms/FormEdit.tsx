@@ -97,7 +97,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
   };
 
   const renderFieldEditor = (field: FormField, index: number) => {
-    const needsOptions = ['select', 'radio', 'checkbox'].includes(field.type);
+    const needsOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(field.type);
     
     return (
       <div key={field.id} className="p-4 border border-gray-200 rounded-lg">
@@ -152,7 +152,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
               value={field.type}
               onChange={(e) => updateField(index, { 
                 type: e.target.value as FormField['type'],
-                options: ['select', 'radio', 'checkbox'].includes(e.target.value) ? ['Option 1'] : undefined
+                options: ['select', 'multiselect', 'radio', 'checkbox'].includes(e.target.value) ? ['Option 1'] : undefined
               })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
@@ -160,10 +160,12 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
               <option value="email">Email</option>
               <option value="textarea">Textarea</option>
               <option value="select">Select</option>
+              <option value="multiselect">Multi-Select</option>
               <option value="radio">Radio</option>
               <option value="checkbox">Checkbox</option>
               <option value="number">Number</option>
               <option value="date">Date</option>
+              <option value="file">File Upload</option>
             </select>
           </div>
         </div>
@@ -229,6 +231,41 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
           </div>
         )}
 
+        {field.type === 'file' && (
+          <div className="space-y-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Accepted File Types
+              </label>
+              <input
+                type="text"
+                value={field.accept || ''}
+                onChange={(e) => updateField(index, { accept: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., image/*, .pdf, .jpg,.png"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Comma-separated MIME types or file extensions
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Max File Size (bytes)
+              </label>
+              <input
+                type="number"
+                value={field.maxFileSize || 5242880}
+                onChange={(e) => updateField(index, { maxFileSize: parseInt(e.target.value) || undefined })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="5242880 (5MB default)"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Default: 5242880 bytes (5MB). Suggested: 5242880 (5MB), 10485760 (10MB)
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <input
@@ -242,7 +279,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
             </label>
           </div>
           
-          {field.type === 'select' && (
+          {field.type === 'select' || field.type === 'multiselect' ? (
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -254,7 +291,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
                 Allow "Other" option
               </label>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     );

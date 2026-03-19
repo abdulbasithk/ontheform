@@ -3,6 +3,7 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
+
 // Email service configuration
 class EmailService {
   constructor() {
