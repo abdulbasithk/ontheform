@@ -108,11 +108,9 @@ class EmailService {
           // Update email content to show QR code image inline
           qrCodeImage = `
             <div style="text-align: center; margin: 20px 0;">
-              <h3 style="color: #374151; margin-bottom: 10px;">[QR CODE]</h3>
               <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; display: inline-block;">
                 <img src="${absoluteQrCodeUrl}" alt="Submission QR Code" style="display: block; margin: 0 auto; max-width: 200px; height: auto;" />
               </div>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">Barcode ini dipakai untuk registrasi ulang saat kedatangan.</p>
             </div>
           `;
         } catch (error) {
@@ -151,9 +149,9 @@ class EmailService {
             ${bannerImage}
             
             <div style="padding: 30px;">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #111827; margin: 0 0 10px 0; font-size: 28px; font-weight: 700;">Halo,</h1>
-                <p style="color: #6b7280; margin: 0; font-size: 16px;">RSVP kamu sudah kami terima - and you're officially on the list. ✨</p>
+              <div style="margin-bottom: 30px;">
+                <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px; font-weight: 700;">Halo,</p>
+                <p style="color: #374151; margin: 0; font-size: 16px;">RSVP kamu sudah kami terima - and you're officially on the list. ✨</p>
               </div>
 
               <div style="margin-bottom: 24px;">
@@ -171,7 +169,7 @@ class EmailService {
 
               <div style="margin-top: 8px; margin-bottom: 24px;">
                 <p style="color: #6b7280; font-size: 14px; margin: 0 0 12px 0;">Mohon untuk menjaga detail acara ini tetap privat. Undangan ini bersifat personal dan tidak untuk dibagikan ke pihak lain di luar tamu yang terdaftar. Kami ingin menjaga suasana tetap hangat, dekat, dan eksklusif.</p>
-                <p style="color: #374151; font-size: 15px; margin: 0;">🎟️ Simpan barcode ini untuk registrasi ulang saat kedatangan. See you!</p>
+                <p style="color: #374151; font-size: 15px; margin: 10px 0 0 0;">🎟️ Simpan barcode ini untuk registrasi ulang saat kedatangan. See you!</p>
               </div>
 
               <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
