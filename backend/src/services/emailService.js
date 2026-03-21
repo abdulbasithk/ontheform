@@ -144,11 +144,11 @@ class EmailService {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Form Submission Confirmation</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; margin-top: 20px;">
           <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;">
             ${bannerImage}
             
-            <div style="padding: 30px;">
+            <div>
               <div style="margin-bottom: 30px;">
                 <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px; font-weight: 700;">Halo,</p>
                 <p style="color: #374151; margin: 0; font-size: 16px;">RSVP kamu sudah kami terima - and you're officially on the list. ✨</p>
