@@ -103,7 +103,7 @@ app.listen(PORT, async () => {
 
   // Initialize email blast worker
   try {
-    // await initializeWorker();
+    await initializeWorker();
     console.log('📧 Email blast worker initialized');
   } catch (error) {
     console.error('⚠️  Failed to initialize email blast worker:', error.message);
