@@ -16,6 +16,11 @@ export interface FormField {
   allow_other?: boolean;
   accept?: string; // For file fields: 'image/*', 'image/png', '.pdf', etc.
   maxFileSize?: number; // In bytes, e.g., 5242880 for 5MB
+  enableCrop?: boolean;
+  cropWidth?: number;
+  cropHeight?: number;
+  circularCrop?: boolean;
+  section?: string;
 }
 
 export interface Form {
@@ -27,6 +32,7 @@ export interface Form {
   updated_at: Date;
   is_active: boolean;
   is_displayed?: boolean;
+  display_mode?: 'classic' | 'wizard';
   submission_count: number;
   max_submission_count?: number;
   unique_constraint_type?: 'none' | 'ip' | 'field';

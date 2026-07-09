@@ -16,6 +16,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
   const [title, setTitle] = useState(initialForm?.title || '');
   const [description, setDescription] = useState(initialForm?.description || '');
   const [isActive, setIsActive] = useState(initialForm?.is_active ?? true);
+  const [displayMode, setDisplayMode] = useState<'classic' | 'wizard'>(initialForm?.display_mode || 'classic');
   const [fields, setFields] = useState<FormField[]>(initialForm?.fields || []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
       setDescription(initialForm.description || '');
       setFields(initialForm.fields);
       setIsActive(initialForm.is_active);
+      setDisplayMode(initialForm.display_mode || 'classic');
     }
     setError(null);
     setValidationErrors([]);
@@ -68,7 +70,8 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
       title: title.trim(),
       description: description.trim() || undefined,
       fields,
-      isActive
+      isActive,
+      displayMode
     };
 
     const errors = FormsService.validateFormData(formData);
@@ -168,6 +171,19 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
               <option value="file">File Upload</option>
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Wizard Section / Step Name (Optional)
+            </label>
+            <input
+              type="text"
+              value={field.section || ''}
+              onChange={(e) => updateField(index, { section: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g. Personal Info, Uploads"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">Used to group questions into steps when Display Mode is set to Wizard</p>
+          </div>
         </div>
 
         {!needsOptions && (
@@ -263,6 +279,58 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
                 Default: 5242880 bytes (5MB). Suggested: 5242880 (5MB), 10485760 (10MB)
               </p>
             </div>
+            
+            {/* Image Crop Options */}
+            {(field.accept?.includes('image') || field.accept === '*/*' || !field.accept) && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`crop-enable-${field.id}`}
+                    checked={field.enableCrop || false}
+                    onChange={(e) => updateField(index, { enableCrop: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor={`crop-enable-${field.id}`} className="ml-2 text-xs font-medium text-gray-700">
+                    Enable Avatar/Photo Cropping
+                  </label>
+                </div>
+                
+                {field.enableCrop && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Width (px)</label>
+                      <input
+                        type="number"
+                        value={field.cropWidth || 300}
+                        onChange={(e) => updateField(index, { cropWidth: parseInt(e.target.value) || 300 })}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Height (px)</label>
+                      <input
+                        type="number"
+                        value={field.cropHeight || 300}
+                        onChange={(e) => updateField(index, { cropHeight: parseInt(e.target.value) || 300 })}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-end pb-1.5 pl-2">
+                      <label className="flex items-center text-[10px] font-medium text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={field.circularCrop || false}
+                          onChange={(e) => updateField(index, { circularCrop: e.target.checked })}
+                          className="w-3.5 h-3.5 mr-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        Circular Crop
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -334,9 +402,8 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
                   </ul>
                 </div>
               )}
-
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Form Title *
@@ -363,6 +430,20 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Form Display Mode
+                    </label>
+                    <select
+                      value={displayMode}
+                      onChange={(e) => setDisplayMode(e.target.value as 'classic' | 'wizard')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={isLoading}
+                    >
+                      <option value="classic">Classic (All-in-one)</option>
+                      <option value="wizard">Wizard (One Section at a time)</option>
                     </select>
                   </div>
                 </div>
