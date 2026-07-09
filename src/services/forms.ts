@@ -8,6 +8,7 @@ export interface CreateFormRequest {
   fields: FormField[];
   isActive?: boolean;
   isDisplayed?: boolean;
+  displayMode?: 'classic' | 'wizard';
 }
 
 export interface UpdateFormRequest {
@@ -16,6 +17,7 @@ export interface UpdateFormRequest {
   fields: FormField[];
   isActive?: boolean;
   isDisplayed?: boolean;
+  displayMode?: 'classic' | 'wizard';
 }
 
 export interface FormResponse {
@@ -146,6 +148,7 @@ export class FormsService {
     termsSecondaryText?: string;
     termsLinkUrl?: string;
     termsLinkText?: string;
+    displayMode?: 'classic' | 'wizard';
   }): Promise<{ message: string; form: Form }> {
     try {
       return await apiClient.put<{ message: string; form: Form }>(`${API_ENDPOINTS.FORMS.UPDATE(id)}/settings`, settings);

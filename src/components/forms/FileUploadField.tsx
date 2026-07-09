@@ -1,6 +1,7 @@
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import React, { useState } from 'react';
 import { FormField } from '../../types';
+import { ImageCropper } from './ImageCropper';
 
 interface FileUploadFieldProps {
   field: FormField;
@@ -19,6 +20,7 @@ export function FileUploadField({
 }: FileUploadFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
 
   const isImageAccept = field.accept?.includes('image');
   const maxFileSize = field.maxFileSize || 5242880; // 5MB default
@@ -77,7 +79,13 @@ export function FileUploadField({
     }
 
     setError(null);
-    onChange(file);
+    
+    // Check if cropping is enabled
+    if (field.enableCrop && file.type.startsWith('image/')) {
+      setPendingCropFile(file);
+    } else {
+      onChange(file);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +218,23 @@ export function FileUploadField({
             </div>
           </div>
         </>
+      )}
+
+      {/* Image Cropper Modal */}
+      {pendingCropFile && (
+        <ImageCropper
+          imageFile={pendingCropFile}
+          cropWidth={field.cropWidth || 300}
+          cropHeight={field.cropHeight || 300}
+          circularCrop={field.circularCrop}
+          onCrop={(croppedFile) => {
+            setPendingCropFile(null);
+            onChange(croppedFile);
+          }}
+          onCancel={() => {
+            setPendingCropFile(null);
+          }}
+        />
       )}
 
       {/* Error Message */}

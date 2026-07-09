@@ -23,6 +23,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   const [termsSecondaryText, setTermsSecondaryText] = useState<string>('');
   const [termsLinkUrl, setTermsLinkUrl] = useState<string>('');
   const [termsLinkText, setTermsLinkText] = useState<string>('');
+  const [displayMode, setDisplayMode] = useState<'classic' | 'wizard'>('classic');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -41,6 +42,7 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       setTermsSecondaryText(initialForm.terms_secondary_text || '');
       setTermsLinkUrl(initialForm.terms_link_url || '');
       setTermsLinkText(initialForm.terms_link_text || '');
+      setDisplayMode(initialForm.display_mode || 'classic');
       setError(null);
       setSuccess(false);
     }
@@ -69,7 +71,8 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
         termsText: showTermsCheckbox ? termsText : undefined,
         termsSecondaryText: showTermsCheckbox ? termsSecondaryText : undefined,
         termsLinkUrl: showTermsCheckbox && termsLinkUrl ? termsLinkUrl : undefined,
-        termsLinkText: showTermsCheckbox && termsLinkText ? termsLinkText : undefined
+        termsLinkText: showTermsCheckbox && termsLinkText ? termsLinkText : undefined,
+        displayMode
       };
 
       const response = await FormsService.updateFormSettings(form.id, settings);
@@ -174,8 +177,27 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
 
 
               {/* Form Settings */}
-               <div className="mb-6">
-                 <div className="mb-6">
+                <div className="mb-6">
+                  {/* Display Mode */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Form Display Mode
+                    </label>
+                    <select
+                      value={displayMode}
+                      onChange={(e) => setDisplayMode(e.target.value as 'classic' | 'wizard')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={isLoading}
+                    >
+                      <option value="classic">Classic (All-in-one)</option>
+                      <option value="wizard">Wizard (One Section at a time)</option>
+                    </select>
+                    <p className="mt-2 text-xs text-gray-600">
+                      Choose if the questions should be displayed all at once or split into steps/sections.
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Maximum Submissions
                     </label>
