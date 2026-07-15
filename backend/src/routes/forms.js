@@ -40,6 +40,35 @@ const upload = multer({
   }
 });
 
+// Configure multer for field images
+const fieldImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads/fields');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'field-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fieldImageUpload = multer({
+  storage: fieldImageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
+
 // Serve uploaded files
 router.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
@@ -80,6 +109,11 @@ const validateForm = [
     .optional()
     .isBoolean()
     .withMessage('Allow other must be boolean'),
+  body('fields.*.image_url')
+    .optional()
+    .trim()
+    .isString()
+    .withMessage('Image URL must be a string'),
   body('isActive')
     .optional()
     .isBoolean()
@@ -204,6 +238,19 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1
     }
+  });
+}));
+
+// POST /api/forms/upload-field-image - Upload field image (admin only)
+router.post('/upload-field-image', authenticateToken, fieldImageUpload.single('image'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new AppError('No file uploaded', 400, 'NO_FILE');
+  }
+
+  const imageUrl = `/api/forms/uploads/fields/${req.file.filename}`;
+  res.json({
+    message: 'Field image uploaded successfully',
+    imageUrl
   });
 }));
 

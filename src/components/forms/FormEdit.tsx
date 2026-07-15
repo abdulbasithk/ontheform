@@ -4,6 +4,7 @@ import FormsService, { CreateFormRequest, UpdateFormRequest } from '../../servic
 import { Form, FormField } from '../../types';
 import { generateUUID } from '../../utils/uuid';
 import { BannerUpload } from './BannerUpload';
+import { getBannerUrl } from '../../services/api';
 
 interface FormEditProps {
   form: Form | null;
@@ -21,6 +22,7 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [uploadingFields, setUploadingFields] = useState<Record<string, boolean>>({});
 
   const isEditing = !!form;
 
@@ -144,6 +146,70 @@ export function FormEdit({ form: initialForm, onClose, onSave }: FormEditProps) 
               placeholder="Enter secondary label (Indonesian)"
             />
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Field Image/Photo (Optional)
+          </label>
+          {field.image_url ? (
+            <div className="flex items-center gap-3">
+              <img
+                src={getBannerUrl(field.image_url)}
+                alt="Field preview"
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={() => updateField(index, { image_url: undefined })}
+                className="text-xs text-red-600 hover:text-red-800 font-medium"
+              >
+                Remove Image
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                id={`field-image-${field.id}`}
+                className="hidden"
+                disabled={uploadingFields[field.id]}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setUploadingFields(prev => ({ ...prev, [field.id]: true }));
+                    try {
+                      const response = await FormsService.uploadFieldImage(file);
+                      updateField(index, { image_url: response.imageUrl });
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to upload field image');
+                    } finally {
+                      setUploadingFields(prev => ({ ...prev, [field.id]: false }));
+                    }
+                  }
+                }}
+              />
+              <label
+                htmlFor={`field-image-${field.id}`}
+                className={`cursor-pointer inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg hover:bg-gray-50 text-gray-700 transition-colors ${
+                  uploadingFields[field.id] ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {uploadingFields[field.id] ? (
+                  <>
+                    <Loader size={12} className="animate-spin mr-1" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Plus size={12} className="mr-1" />
+                    Upload Field Photo
+                  </>
+                )}
+              </label>
+            </div>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

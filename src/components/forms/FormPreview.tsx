@@ -100,6 +100,19 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
     const baseInputClasses = "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors";
     const labelClasses = "block text-sm font-medium text-gray-700 mb-2";
 
+    const renderFieldImage = (field: FormField) => {
+      if (!field.image_url) return null;
+      return (
+        <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 shadow-sm max-w-full">
+          <img
+            src={getBannerUrl(field.image_url)}
+            alt={field.label}
+            className="w-full max-h-64 object-cover hover:scale-[1.01] transition-transform duration-300"
+          />
+        </div>
+      );
+    };
+
     switch (field.type) {
       case 'text':
       case 'email':
@@ -113,6 +126,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <input
               type={field.type}
               value={value}
@@ -134,6 +148,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <textarea
               value={value}
               onChange={(e) => handleInputChange(field.id, e.target.value)}
@@ -155,6 +170,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <select
               value={value}
               onChange={(e) => handleInputChange(field.id, e.target.value)}
@@ -181,6 +197,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <div className="space-y-2">
               {field.options?.map((option) => (
                 <label key={option} className="flex items-center space-x-3 cursor-pointer">
@@ -215,6 +232,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <div className="space-y-2">
               {field.options?.map((option) => (
                 <label key={option} className="flex items-center space-x-3 cursor-pointer">
@@ -244,6 +262,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <div className="space-y-2">
               {field.options?.map((option) => (
                 <label key={option} className="flex items-center space-x-3 cursor-pointer">
@@ -278,6 +297,7 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
                 {field.required && <span className="text-red-500">*</span>}
               </div>
             </label>
+            {renderFieldImage(field)}
             <input
               type="date"
               value={value}
@@ -290,7 +310,8 @@ export function FormPreview({ form, onClose }: FormPreviewProps) {
 
       case 'file':
         return (
-          <div key={field.id}>
+          <div key={field.id} className="space-y-2">
+            {renderFieldImage(field)}
             <FileUploadField
               field={field}
               value={formData[field.id] || null}

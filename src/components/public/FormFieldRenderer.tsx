@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { FormField } from "../../types";
 import { FileUploadField } from "../forms/FileUploadField";
+import { getBannerUrl } from "../../services/api";
 
 interface FormFieldRendererProps {
   field: FormField;
@@ -33,6 +34,19 @@ export function FormFieldRenderer({
   handleInputChange,
   setFormData,
 }: FormFieldRendererProps) {
+  const renderFieldImage = (field: FormField) => {
+    if (!field.image_url) return null;
+    return (
+      <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 shadow-sm max-w-full">
+        <img
+          src={getBannerUrl(field.image_url)}
+          alt={field.label}
+          className="w-full max-h-64 object-cover hover:scale-[1.01] transition-transform duration-300"
+        />
+      </div>
+    );
+  };
+
   const getFieldIcon = (type: FormField["type"]) => {
     switch (type) {
       case "email":
@@ -85,6 +99,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <input
             type={field.type}
             value={value}
@@ -122,6 +137,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <textarea
             value={value}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
@@ -160,6 +176,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <select
             value={
               showOtherInput
@@ -235,6 +252,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <div className="space-y-2">
             {field.options?.map((option) => (
               <label
@@ -326,6 +344,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <div className="space-y-2">
             {field.options?.map((option) => (
               <label
@@ -374,6 +393,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <div className="space-y-2">
             {field.options?.map((option) => (
               <label
@@ -420,6 +440,7 @@ export function FormFieldRenderer({
               {field.required && <span className="text-red-500">*</span>}
             </div>
           </label>
+          {renderFieldImage(field)}
           <input
             type="date"
             value={value}
@@ -456,6 +477,7 @@ export function FormFieldRenderer({
               </div>
             </div>
           </label>
+          {renderFieldImage(field)}
           <FileUploadField
             field={field}
             value={filesMap[field.id] || null}

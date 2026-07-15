@@ -178,6 +178,24 @@ export class FormsService {
     }
   }
 
+  // Upload field image
+  static async uploadFieldImage(file: File): Promise<{ message: string; imageUrl: string }> {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      return await apiClient.postFormData<{ message: string; imageUrl: string }>(
+        `${API_ENDPOINTS.FORMS.LIST}/upload-field-image`, 
+        formData
+      );
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError('Failed to upload field image', 500);
+    }
+  }
+
   // Delete form banner
   static async deleteBanner(id: string): Promise<{ message: string; form: Form }> {
     try {
