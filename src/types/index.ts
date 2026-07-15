@@ -21,6 +21,7 @@ export interface FormField {
   cropHeight?: number;
   circularCrop?: boolean;
   section?: string;
+  image_url?: string;
 }
 
 export interface Form {
