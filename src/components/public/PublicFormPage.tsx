@@ -534,10 +534,10 @@ function AccessCodeGate({ form, initialError, onValidated }: { form: Form; initi
     <main className="min-h-screen bg-gray-50 px-4 py-12">
       <div className="mx-auto max-w-md">
         {getBannerUrl(form.banner_url) && <img src={getBannerUrl(form.banner_url)} alt="Form banner" className="mb-6 w-full max-h-64 object-contain" />}
-        <h1 className="text-2xl font-semibold text-gray-900 break-words">{form.access_code_title?.trim() || form.title}</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 break-words">{form.title}</h1>
         {form.access_code_description?.trim() && <p className="mt-3 text-gray-600 whitespace-pre-wrap break-words">{form.access_code_description}</p>}
         <form onSubmit={handleValidate} className="mt-8 space-y-4">
-          <label htmlFor="access-code" className="block text-sm font-medium text-gray-700">Access code</label>
+          <label htmlFor="access-code" className="block text-sm font-medium text-gray-700">{form.access_code_title?.trim() || 'Access code'}</label>
           <input id="access-code" value={code} onChange={(event) => setCode(event.target.value)} required maxLength={255} autoComplete="off" disabled={isChecking} aria-invalid={Boolean(error)} aria-describedby={error ? 'access-code-error' : undefined} className="w-full rounded-lg border border-gray-300 px-3 py-3 focus:ring-2 focus:ring-blue-500" />
           {error && <p id="access-code-error" role="alert" className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={isChecking || !code.trim()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:opacity-50">
