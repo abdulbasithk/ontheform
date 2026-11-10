@@ -36,6 +36,8 @@ export interface Form {
   display_mode?: 'classic' | 'wizard';
   access_code_required?: boolean;
   access_code_single_use?: boolean;
+  access_code_title?: string;
+  access_code_description?: string;
   submission_count: number;
   max_submission_count?: number;
   unique_constraint_type?: 'none' | 'ip' | 'field';

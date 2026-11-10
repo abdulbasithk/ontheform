@@ -26,6 +26,8 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   const [displayMode, setDisplayMode] = useState<'classic' | 'wizard'>('classic');
   const [accessCodeRequired, setAccessCodeRequired] = useState(false);
   const [accessCodeSingleUse, setAccessCodeSingleUse] = useState(true);
+  const [accessCodeTitle, setAccessCodeTitle] = useState('');
+  const [accessCodeDescription, setAccessCodeDescription] = useState('');
   const [codeStats, setCodeStats] = useState<{ total: number; used: number } | null>(null);
   const [uploadMessage, setUploadMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -50,6 +52,8 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       setDisplayMode(initialForm.display_mode || 'classic');
       setAccessCodeRequired(initialForm.access_code_required ?? false);
       setAccessCodeSingleUse(initialForm.access_code_single_use ?? true);
+      setAccessCodeTitle(initialForm.access_code_title || '');
+      setAccessCodeDescription(initialForm.access_code_description || '');
       setCodeStats(null);
       setUploadMessage('');
       setError(null);
@@ -101,6 +105,8 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       const settings = {
         accessCodeRequired,
         accessCodeSingleUse,
+        accessCodeTitle,
+        accessCodeDescription,
         maxSubmissions,
         uniqueConstraintType,
         uniqueConstraintField: uniqueConstraintType === 'field' ? uniqueConstraintField : undefined,
@@ -222,6 +228,14 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input type="checkbox" checked={accessCodeRequired} onChange={(event) => setAccessCodeRequired(event.target.checked)} />
                       Require a code before filling the form
+                    </label>
+                    <label className="block text-sm text-gray-700">
+                      Code screen title
+                      <input type="text" value={accessCodeTitle} onChange={(event) => setAccessCodeTitle(event.target.value)} maxLength={255} placeholder={form.title} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    </label>
+                    <label className="block text-sm text-gray-700">
+                      Code screen description (optional)
+                      <textarea value={accessCodeDescription} onChange={(event) => setAccessCodeDescription(event.target.value)} maxLength={1000} rows={3} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg" />
                     </label>
                     <label className="block text-sm text-gray-700">
                       Code usage

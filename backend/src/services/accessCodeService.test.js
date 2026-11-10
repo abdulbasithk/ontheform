@@ -203,5 +203,50 @@ describe('access-code API enforcement', () => {
     assert.equal(response.status, 200);
     const update = database.query.mock.calls.find(([sql]) => sql.includes('UPDATE forms'));
     assert.match(update[0], /RETURNING[\s\S]*access_code_required, access_code_single_use/);
+    assert.match(update[0], /access_code_title, access_code_description/);
+  });
+
+  test('code-screen content is trimmed, saved and returned without changing form content', async () => {
+    const response = await request(app).put(`/api/forms/${formId}/settings`).set('Authorization', 'test')
+      .send({ accessCodeTitle: '  Enter your invitation code  ', accessCodeDescription: '  Welcome!\nYour invitation code is required.  ' });
+    assert.equal(response.status, 200);
+    const update = database.query.mock.calls.find(([sql]) => sql.includes('UPDATE forms'));
+    assert.deepEqual(update[1], ['Enter your invitation code', 'Welcome!\nYour invitation code is required.', formId]);
+    assert.match(update[0], /SET access_code_title = \$1, access_code_description = \$2/);
+    assert.match(update[0], /RETURNING[\s\S]*access_code_title, access_code_description/);
+  });
+
+  test('code-screen content can be cleared to restore defaults', async () => {
+    const response = await request(app).put(`/api/forms/${formId}/settings`).set('Authorization', 'test')
+      .send({ accessCodeTitle: '', accessCodeDescription: '' });
+    assert.equal(response.status, 200);
+    const update = database.query.mock.calls.find(([sql]) => sql.includes('UPDATE forms'));
+    assert.deepEqual(update[1], ['', '', formId]);
+  });
+
+  test.each([
+    { accessCodeTitle: 'a'.repeat(256) },
+    { accessCodeDescription: 'a'.repeat(1001) },
+    { accessCodeTitle: { text: 'Not a string' } },
+    { accessCodeDescription: 42 }
+  ])('invalid code-screen content is rejected: %j', async (content) => {
+    const response = await request(app).put(`/api/forms/${formId}/settings`).set('Authorization', 'test').send(content);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(database.query.mock.calls.length, 0);
+  });
+
+  test('code-screen content updates require form ownership', async () => {
+    form.created_by = 'someone-else';
+    const response = await request(app).put(`/api/forms/${formId}/settings`).set('Authorization', 'test')
+      .send({ accessCodeTitle: 'Unauthorized change' });
+    assert.equal(response.status, 403);
+  });
+
+  test('public form responses select custom code-screen content', async () => {
+    const response = await request(app).get(`/api/forms/${formId}`);
+    assert.equal(response.status, 200);
+    const select = database.query.mock.calls.find(([sql]) => sql.includes('FROM forms'));
+    assert.match(select[0], /access_code_title, access_code_description/);
   });
 });

@@ -154,6 +154,8 @@ export class FormsService {
   static async updateFormSettings(id: string, settings: {
     accessCodeRequired?: boolean;
     accessCodeSingleUse?: boolean;
+    accessCodeTitle?: string;
+    accessCodeDescription?: string;
     uniqueConstraintType?: 'none' | 'ip' | 'field';
     uniqueConstraintField?: string;
     maxSubmissions?: number;

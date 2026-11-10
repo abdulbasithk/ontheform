@@ -38,6 +38,8 @@ CREATE TABLE forms (
     send_email_notification BOOLEAN DEFAULT false, -- Send email notification to submitter
     access_code_required BOOLEAN NOT NULL DEFAULT false,
     access_code_single_use BOOLEAN NOT NULL DEFAULT true,
+    access_code_title VARCHAR(255) NOT NULL DEFAULT '',
+    access_code_description VARCHAR(1000) NOT NULL DEFAULT '',
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

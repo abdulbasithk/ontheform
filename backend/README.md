@@ -72,8 +72,15 @@ The server will start on `http://localhost:3001` (or your configured port).
 ## Form Access Codes
 
 For an existing database, apply `database/migrations/006_add_form_access_codes.sql`
-before deploying the updated backend. New databases include these tables and
+and `database/migrations/007_add_access_code_content.sql` before deploying the
+updated backend. New databases include these tables and
 settings in `database/schema.sql`.
+
+Form Settings also allows a custom code-screen title (up to 255 characters) and
+an optional description (up to 1,000 characters, with line breaks). A blank title
+uses the form title; a blank description is hidden. These fields only affect the
+code screen, not the form's title or description. Save them through the settings
+endpoint as `accessCodeTitle` and `accessCodeDescription`.
 
 In Form Settings, upload an `.xlsx` file and enable the access-code requirement.
 The first worksheet's first column contains one code per row, optionally headed
