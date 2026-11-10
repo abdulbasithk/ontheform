@@ -56,7 +56,8 @@ export function LoginPage() {
   const displayError =  error || localError;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col p-4">
+      <main className="flex flex-1 items-center justify-center w-full py-8">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-xl mb-4">
@@ -139,6 +140,10 @@ export function LoginPage() {
           </button>
         </form>
       </div>
+      </main>
+      <footer className="w-full py-2 text-center text-xs text-gray-600 break-words">
+        Build {__BUILD_INFO__.version} | <time dateTime={__BUILD_INFO__.builtAt}>{new Date(__BUILD_INFO__.builtAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC</time>
+      </footer>
     </div>
   );
 }
