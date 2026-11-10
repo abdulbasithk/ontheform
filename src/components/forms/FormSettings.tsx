@@ -24,6 +24,11 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   const [termsLinkUrl, setTermsLinkUrl] = useState<string>('');
   const [termsLinkText, setTermsLinkText] = useState<string>('');
   const [displayMode, setDisplayMode] = useState<'classic' | 'wizard'>('classic');
+  const [accessCodeRequired, setAccessCodeRequired] = useState(false);
+  const [accessCodeSingleUse, setAccessCodeSingleUse] = useState(true);
+  const [codeStats, setCodeStats] = useState<{ total: number; used: number } | null>(null);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -43,15 +48,47 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       setTermsLinkUrl(initialForm.terms_link_url || '');
       setTermsLinkText(initialForm.terms_link_text || '');
       setDisplayMode(initialForm.display_mode || 'classic');
+      setAccessCodeRequired(initialForm.access_code_required ?? false);
+      setAccessCodeSingleUse(initialForm.access_code_single_use ?? true);
+      setCodeStats(null);
+      setUploadMessage('');
       setError(null);
       setSuccess(false);
     }
   }, [isOpen, initialForm]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    FormsService.getAccessCodeStats(initialForm.id)
+      .then((stats) => { if (active) setCodeStats(stats); })
+      .catch((error) => { if (active) setError(FormsService.handleApiError(error)); });
+    return () => { active = false; };
+  }, [isOpen, initialForm.id]);
+
+  const handleCodeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setIsUploading(true);
+    setError(null);
+    setUploadMessage('');
+    try {
+      const result = await FormsService.uploadAccessCodes(form.id, file);
+      setUploadMessage(`${result.imported} codes added; ${result.duplicates} already uploaded.`);
+      setCodeStats(await FormsService.getAccessCodeStats(form.id));
+    } catch (error) {
+      setError(FormsService.handleApiError(error));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) return;
     setError(null);
     setSuccess(false);
     setIsLoading(true);
@@ -62,6 +99,8 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
       }
 
       const settings = {
+        accessCodeRequired,
+        accessCodeSingleUse,
         maxSubmissions,
         uniqueConstraintType,
         uniqueConstraintField: uniqueConstraintType === 'field' ? uniqueConstraintField : undefined,
@@ -92,13 +131,13 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
   };
 
   const handleClose = () => {
-    if (!isLoading) {
+    if (!isLoading && !isUploading) {
       onClose();
     }
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !isLoading) {
+    if (e.target === e.currentTarget && !isLoading && !isUploading) {
       onClose();
     }
   };
@@ -178,6 +217,30 @@ export function FormSettings({ form: initialForm, isOpen, onClose, onSave }: For
 
               {/* Form Settings */}
                 <div className="mb-6">
+                  <fieldset className="mb-6 space-y-3" disabled={isLoading || isUploading}>
+                    <legend className="text-sm font-medium text-gray-700 mb-2">Access Codes</legend>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked={accessCodeRequired} onChange={(event) => setAccessCodeRequired(event.target.checked)} />
+                      Require a code before filling the form
+                    </label>
+                    <label className="block text-sm text-gray-700">
+                      Code usage
+                      <select value={accessCodeSingleUse ? 'single' : 'reusable'} onChange={(event) => setAccessCodeSingleUse(event.target.value === 'single')} className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="single">One successful submission per code</option>
+                        <option value="reusable">Unlimited submissions per code</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm text-gray-700">
+                      Add codes (.xlsx, first column)
+                      <input type="file" accept=".xlsx" onChange={handleCodeUpload} className="mt-1 block w-full min-w-0 text-sm" />
+                    </label>
+                    {codeStats && <p className="text-sm text-gray-600">{codeStats.total} uploaded; {codeStats.used} previously used</p>}
+                    {accessCodeRequired && codeStats && (accessCodeSingleUse ? codeStats.total === codeStats.used : codeStats.total === 0) && (
+                      <p role="status" className="text-sm text-amber-700">No available codes. This form will not accept submissions.</p>
+                    )}
+                    {isUploading && <p role="status" className="text-sm text-gray-600">Uploading codes...</p>}
+                    {uploadMessage && <p role="status" className="text-sm text-green-700">{uploadMessage}</p>}
+                  </fieldset>
                   {/* Display Mode */}
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">

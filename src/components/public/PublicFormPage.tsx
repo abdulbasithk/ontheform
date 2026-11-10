@@ -2,12 +2,13 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle,
+  KeyRound,
   Send,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import FormsService from "../../services/forms";
 import SubmissionsService from "../../services/submissions";
-import { getBannerUrl } from "../../services/api";
+import { ApiError, getBannerUrl } from "../../services/api";
 import { Form } from "../../types";
 import { FormFieldRenderer } from "./FormFieldRenderer";
 import { WizardFormPage } from "./WizardFormPage";
@@ -59,6 +60,7 @@ export function PublicFormPage({
   const [isLoading, setIsLoading] = useState(true);
   const [submissionResponse, setSubmissionResponse] = useState<any>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [validatedCode, setValidatedCode] = useState<{ formId: string; code: string } | null>(null);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -93,6 +95,7 @@ export function PublicFormPage({
           formToLoad &&
           formToLoad.max_submission_count !== undefined &&
           formToLoad.max_submission_count !== null &&
+          formToLoad.max_submission_count > 0 &&
           formToLoad.submission_count >= formToLoad.max_submission_count
         ) {
           setError(
@@ -200,6 +203,7 @@ export function PublicFormPage({
       const response = await SubmissionsService.submitForm(
         {
           formId: form!.id,
+          accessCode: validatedCode?.formId === form!.id ? validatedCode.code : undefined,
           responses: formData,
         },
         Object.keys(filesMap).length > 0 ? filesMap : undefined
@@ -212,12 +216,13 @@ export function PublicFormPage({
     } catch (error) {
       const errorMessage = SubmissionsService.handleApiError(error);
       setError(errorMessage);
+      if (error instanceof ApiError && error.code === 'INVALID_ACCESS_CODE') setValidatedCode(null);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (error) {
+  if (error && !form) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
@@ -321,6 +326,9 @@ export function PublicFormPage({
               setSubmitted(false);
               setFormData({});
               setSubmissionResponse(null);
+              setValidatedCode(null);
+              setTermsAccepted(false);
+              setError(null);
             }}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
@@ -331,11 +339,17 @@ export function PublicFormPage({
     );
   }
 
+  if (form.access_code_required && validatedCode?.formId !== form.id) {
+    return <AccessCodeGate key={form.id} form={form} initialError={error} onValidated={(code) => { setError(null); setValidatedCode({ formId: form.id, code }); }} />;
+  }
+
   // Handle Wizard Form rendering
   if (form.display_mode === "wizard") {
     return (
       <WizardFormPage
         form={form}
+        accessCode={validatedCode?.formId === form.id ? validatedCode.code : undefined}
+        onAccessCodeRejected={(message) => { setError(message); setValidatedCode(null); }}
         parseTextWithLinks={parseTextWithLinks}
         onSubmitted={(response) => {
           setSubmissionResponse(response);
@@ -370,6 +384,7 @@ export function PublicFormPage({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6">
+            {error && <p role="alert" className="mb-4 text-sm text-red-600">{error}</p>}
             <div className="space-y-6">
               {form.fields.map((field) => (
                 <FormFieldRenderer
@@ -493,5 +508,42 @@ export function PublicFormPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function AccessCodeGate({ form, initialError, onValidated }: { form: Form; initialError: string | null; onValidated: (code: string) => void }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(initialError);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleValidate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsChecking(true);
+    setError(null);
+    try {
+      await FormsService.validateAccessCode(form.id, code);
+      onValidated(code.trim());
+    } catch (error) {
+      setError(FormsService.handleApiError(error));
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-gray-50 px-4 py-12">
+      <div className="mx-auto max-w-md">
+        {getBannerUrl(form.banner_url) && <img src={getBannerUrl(form.banner_url)} alt="Form banner" className="mb-6 w-full max-h-64 object-contain" />}
+        <h1 className="text-2xl font-semibold text-gray-900 break-words">{form.title}</h1>
+        <form onSubmit={handleValidate} className="mt-8 space-y-4">
+          <label htmlFor="access-code" className="block text-sm font-medium text-gray-700">Access code</label>
+          <input id="access-code" value={code} onChange={(event) => setCode(event.target.value)} required maxLength={255} autoComplete="off" disabled={isChecking} aria-invalid={Boolean(error)} aria-describedby={error ? 'access-code-error' : undefined} className="w-full rounded-lg border border-gray-300 px-3 py-3 focus:ring-2 focus:ring-blue-500" />
+          {error && <p id="access-code-error" role="alert" className="text-sm text-red-600">{error}</p>}
+          <button type="submit" disabled={isChecking || !code.trim()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:opacity-50">
+            <KeyRound size={18} />{isChecking ? 'Checking...' : 'Continue'}
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }

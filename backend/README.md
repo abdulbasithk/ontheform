@@ -69,6 +69,43 @@ npm start
 
 The server will start on `http://localhost:3001` (or your configured port).
 
+## Form Access Codes
+
+For an existing database, apply `database/migrations/006_add_form_access_codes.sql`
+before deploying the updated backend. New databases include these tables and
+settings in `database/schema.sql`.
+
+In Form Settings, upload an `.xlsx` file and enable the access-code requirement.
+The first worksheet's first column contains one code per row, optionally headed
+`code`. Use Excel text cells to preserve leading zeros. Imports allow up to
+10,000 codes and 2 MB per file. Blank rows are ignored, duplicates are skipped,
+and uploads add to the existing list without resetting previously used codes.
+Uploads are saved immediately, independently of saving the settings dialog.
+
+Codes are case-sensitive, with surrounding whitespace ignored. Only SHA-256
+hashes are stored; neither public nor admin APIs return the code list. Use
+long, unpredictable codes. Forms can require one successful submission per code
+or allow reuse. A code is checked before either public form layout opens, then
+checked again on submission. Validation alone never consumes a code. Successful
+submissions mark the code as previously used, even in reusable mode; switching
+to single-use mode therefore rejects all previously used codes. Deleting a
+submission does not restore its code. Disabling the requirement keeps the list.
+
+- `POST /api/forms/:id/access-codes`: owner/admin `.xlsx` upload, multipart field `file`.
+- `GET /api/forms/:id/access-codes`: owner/admin totals (`total`, `used`).
+- `POST /api/forms/:id/access-codes/validate`: public `{ "code": "..." }`, rate-limited.
+- `PUT /api/forms/:id/settings`: `accessCodeRequired`, `accessCodeSingleUse` booleans.
+- `POST /api/submissions`: include `accessCode` in JSON or multipart data when required.
+
+Run the access-code parser and API regression tests with:
+
+```bash
+npm test -- --runInBand src/services/accessCodeService.test.js
+```
+
+These tests isolate database calls; verify migrations and concurrent submission
+locking against PostgreSQL before production deployment.
+
 ## API Endpoints
 
 ### Authentication

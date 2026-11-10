@@ -11,7 +11,8 @@ const path = require("path");
 const fs = require("fs");
 const ExcelJS = require("exceljs");
 const QRCode = require("qrcode");
-const { query } = require("../config/database");
+const { query, transaction } = require("../config/database");
+const { validateAccessCode } = require("../services/accessCodeService");
 const { authenticateToken, optionalAuth } = require("../middleware/auth");
 const { asyncHandler, AppError } = require("../middleware/errorHandler");
 const emailService = require("../services/emailService");
@@ -262,6 +263,8 @@ router.post(
 
       const form = formResult.rows[0];
 
+      await validateAccessCode({ query }, formId, req.body.accessCode);
+
       // Enforce total submission limit when configured (> 0)
       if (form.max_submission_count > 0) {
         const totalSubmissionsResult = await query(
@@ -367,7 +370,9 @@ router.post(
 
       // Create submission
       const submissionId = uuidv4();
-      const result = await query(
+      const result = await transaction(async (client) => {
+        const codeHash = await validateAccessCode(client, formId, req.body.accessCode, true);
+        const inserted = await client.query(
         `INSERT INTO form_submissions (id, form_id, responses, submitter_email, submitter_ip, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, form_id, responses, submitter_email, submitted_at`,
@@ -379,7 +384,15 @@ router.post(
           submitterIp,
           userAgent,
         ],
-      );
+        );
+        if (codeHash) {
+          await client.query(
+            'UPDATE form_access_codes SET used_at = CURRENT_TIMESTAMP WHERE form_id = $1 AND code_hash = $2',
+            [formId, codeHash]
+          );
+        }
+        return inserted;
+      });
 
       const submission = result.rows[0];
 
