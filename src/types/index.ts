@@ -34,6 +34,8 @@ export interface Form {
   is_active: boolean;
   is_displayed?: boolean;
   display_mode?: 'classic' | 'wizard';
+  access_code_required?: boolean;
+  access_code_single_use?: boolean;
   submission_count: number;
   max_submission_count?: number;
   unique_constraint_type?: 'none' | 'ip' | 'field';

@@ -30,13 +30,18 @@ if (process.env.NODE_ENV === 'production') {
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // CORS configuration
-/* app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(origin => origin.trim());
+
+app.use(cors({
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-*/
+
 
 // Rate limiting
 const limiter = rateLimit({

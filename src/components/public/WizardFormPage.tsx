@@ -1,18 +1,22 @@
 import { AlertCircle, ArrowLeft, Send } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import SubmissionsService from "../../services/submissions";
-import { getBannerUrl } from "../../services/api";
+import { ApiError, getBannerUrl } from "../../services/api";
 import { Form, FormField } from "../../types";
 import { FormFieldRenderer } from "./FormFieldRenderer";
 
 interface WizardFormPageProps {
   form: Form;
+  accessCode?: string;
+  onAccessCodeRejected?: (message: string) => void;
   onSubmitted: (response: any) => void;
   parseTextWithLinks: (text: string) => any;
 }
 
 export function WizardFormPage({
   form,
+  accessCode,
+  onAccessCodeRejected,
   onSubmitted,
   parseTextWithLinks,
 }: WizardFormPageProps) {
@@ -182,6 +186,7 @@ export function WizardFormPage({
       const response = await SubmissionsService.submitForm(
         {
           formId: form.id,
+          accessCode,
           responses: formData,
         },
         Object.keys(filesMap).length > 0 ? filesMap : undefined
@@ -194,6 +199,7 @@ export function WizardFormPage({
     } catch (error) {
       const errorMessage = SubmissionsService.handleApiError(error);
       setError(errorMessage);
+      if (error instanceof ApiError && error.code === 'INVALID_ACCESS_CODE') onAccessCodeRejected?.(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

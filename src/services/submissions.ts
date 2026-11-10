@@ -4,6 +4,7 @@ import { FormSubmission } from '../types';
 // Submission request/response types
 export interface SubmitFormRequest {
   formId: string;
+  accessCode?: string;
   responses: Record<string, any>;
 }
 
@@ -42,6 +43,7 @@ export class SubmissionsService {
         const formData = new FormData();
         formData.append('formId', data.formId);
         formData.append('responses', JSON.stringify(data.responses));
+        if (data.accessCode) formData.append('accessCode', data.accessCode);
 
         // Add files to the form data
         for (const [fieldId, file] of Object.entries(filesMap)) {

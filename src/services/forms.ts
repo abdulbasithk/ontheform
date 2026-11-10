@@ -137,7 +137,23 @@ export class FormsService {
   }
 
   // Update form settings
+  static async getAccessCodeStats(id: string): Promise<{ total: number; used: number }> {
+    return apiClient.get(`${API_ENDPOINTS.FORMS.GET(id)}/access-codes`);
+  }
+
+  static async uploadAccessCodes(id: string, file: File): Promise<{ imported: number; duplicates: number }> {
+    const data = new FormData();
+    data.append('file', file);
+    return apiClient.postFormData(`${API_ENDPOINTS.FORMS.GET(id)}/access-codes`, data);
+  }
+
+  static async validateAccessCode(id: string, code: string): Promise<{ valid: boolean }> {
+    return apiClient.post(`${API_ENDPOINTS.FORMS.GET(id)}/access-codes/validate`, { code });
+  }
+
   static async updateFormSettings(id: string, settings: {
+    accessCodeRequired?: boolean;
+    accessCodeSingleUse?: boolean;
     uniqueConstraintType?: 'none' | 'ip' | 'field';
     uniqueConstraintField?: string;
     maxSubmissions?: number;

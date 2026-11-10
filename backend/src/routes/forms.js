@@ -4,11 +4,15 @@ const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { query } = require('../config/database');
+const { query, transaction } = require('../config/database');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { parseWorkbook, validateAccessCode } = require('../services/accessCodeService');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
+const codeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1 } });
+const codeValidationLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -212,6 +216,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
       unique_constraint_type, unique_constraint_field, banner_url,
       show_qr_code, send_email_notification, is_displayed, display_mode,
       show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
+      access_code_required, access_code_single_use,
       created_at, updated_at
     FROM forms 
     ${whereClause}
@@ -265,6 +270,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
         unique_constraint_type, unique_constraint_field, banner_url,
         show_qr_code, send_email_notification, is_displayed, display_mode,
         show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text,
+        access_code_required, access_code_single_use,
         created_at, updated_at
       FROM forms 
       WHERE is_displayed = true
@@ -300,7 +306,7 @@ router.get('/displayed', asyncHandler(async (req, res) => {
 router.get('/:id', validateUUID, handleValidationErrors, optionalAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
   
-  let selectClause = 'id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, created_at, updated_at';
+  let selectClause = 'id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, access_code_required, access_code_single_use, created_at, updated_at';
   let whereClause = 'WHERE id = $1';
   let queryParams = [id];
 
@@ -358,7 +364,7 @@ router.post('/', authenticateToken, validateForm, handleValidationErrors, asyncH
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, is_displayed, display_mode, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, access_code_required, access_code_single_use, created_at, updated_at`,
     [formId, title, description, JSON.stringify(fields), isActive, isDisplayed, displayMode, req.user.id]
   );
 
@@ -415,7 +421,7 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
     `UPDATE forms 
      SET title = $1, description = $2, fields = $3, is_active = $4, is_displayed = $5, display_mode = $6, updated_at = CURRENT_TIMESTAMP
      WHERE id = $7
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_link_url, terms_link_text, access_code_required, access_code_single_use, created_at, updated_at`,
     [title, description, JSON.stringify(fields), isActive, isDisplayed, displayMode, id]
   );
 
@@ -428,7 +434,48 @@ router.put('/:id', authenticateToken, validateUUID, validateForm, handleValidati
 }));
 
 // PUT /api/forms/:id/settings - Update form settings
+router.post('/:id/access-codes/validate', codeValidationLimit, validateUUID, handleValidationErrors, asyncHandler(async (req, res) => {
+  await validateAccessCode({ query }, req.params.id, req.body.code);
+  res.json({ valid: true });
+}));
+
+router.get('/:id/access-codes', authenticateToken, validateUUID, handleValidationErrors, asyncHandler(async (req, res) => {
+  await checkFormOwnership(req.params.id, req.user.id, req.user.role);
+  const result = await query(
+    'SELECT COUNT(*)::int AS total, COUNT(used_at)::int AS used FROM form_access_codes WHERE form_id = $1',
+    [req.params.id]
+  );
+  res.json(result.rows[0]);
+}));
+
+router.post('/:id/access-codes', authenticateToken, validateUUID, handleValidationErrors, asyncHandler(async (req, res, next) => {
+  await checkFormOwnership(req.params.id, req.user.id, req.user.role);
+  next();
+}), (req, res, next) => {
+  codeUpload.single('file')(req, res, (error) => {
+    if (error) return next(new AppError(error.code === 'LIMIT_FILE_SIZE' ? 'Excel file must be 2 MB or smaller' : 'Invalid code upload', 400, 'INVALID_CODE_FILE'));
+    next();
+  });
+}, asyncHandler(async (req, res) => {
+  if (!req.file || path.extname(req.file.originalname).toLowerCase() !== '.xlsx') {
+    throw new AppError('Upload an Excel (.xlsx) file', 400, 'INVALID_CODE_FILE');
+  }
+  const hashes = await parseWorkbook(req.file.buffer);
+  const imported = await transaction(async (client) => {
+    await client.query('SELECT id FROM forms WHERE id = $1 FOR UPDATE', [req.params.id]);
+    return client.query(
+      `INSERT INTO form_access_codes (form_id, code_hash)
+       SELECT $1, code_hash FROM unnest($2::text[]) AS code_hash
+       ON CONFLICT (form_id, code_hash) DO NOTHING`,
+      [req.params.id, hashes]
+    );
+  });
+  res.json({ imported: imported.rowCount, duplicates: hashes.length - imported.rowCount });
+}));
+
 router.put('/:id/settings', authenticateToken, validateUUID, [
+  body('accessCodeRequired').optional().isBoolean().withMessage('Access code requirement must be a boolean'),
+  body('accessCodeSingleUse').optional().isBoolean().withMessage('Single-use setting must be a boolean'),
   body('uniqueConstraintType').optional().isIn(['none', 'ip', 'field']).withMessage('Invalid unique constraint type'),
   body('uniqueConstraintField').optional().isString().withMessage('Unique constraint field must be a string'),
   body('maxSubmissions').optional().isInt({ min: 0 }).withMessage('Maximum submissions must be a non-negative integer'),
@@ -479,6 +526,14 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
   const updateFields = [];
   const updateValues = [];
   let paramIndex = 1;
+
+  for (const [setting, column] of [['accessCodeRequired', 'access_code_required'], ['accessCodeSingleUse', 'access_code_single_use']]) {
+    if (req.body[setting] !== undefined) {
+      updateFields.push(`${column} = $${paramIndex}`);
+      updateValues.push(req.body[setting]);
+      paramIndex++;
+    }
+  }
 
   if (uniqueConstraintType !== undefined) {
     updateFields.push(`unique_constraint_type = $${paramIndex}`);
@@ -558,7 +613,7 @@ router.put('/:id/settings', authenticateToken, validateUUID, [
     `UPDATE forms 
      SET ${updateFields.join(', ')}
      WHERE id = $${paramIndex}
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, display_mode, show_terms_checkbox, terms_text, terms_secondary_text, terms_link_url, terms_link_text, access_code_required, access_code_single_use, created_at, updated_at`,
     updateValues
   );
 
@@ -610,7 +665,7 @@ router.post('/:id/banner', authenticateToken, validateUUID, upload.single('banne
     `UPDATE forms 
      SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, access_code_required, access_code_single_use, created_at, updated_at`,
     [bannerUrl, id]
   );
 
@@ -655,7 +710,7 @@ router.delete('/:id/banner', authenticateToken, validateUUID, asyncHandler(async
     `UPDATE forms 
      SET banner_url = NULL, updated_at = CURRENT_TIMESTAMP
      WHERE id = $1
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, access_code_required, access_code_single_use, created_at, updated_at`,
     [id]
   );
 
@@ -789,7 +844,7 @@ router.patch('/:id/display', authenticateToken, validateUUID, handleValidationEr
     `UPDATE forms 
      SET is_displayed = $1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $2
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, access_code_required, access_code_single_use, created_at, updated_at`,
     [newDisplayStatus, id]
   );
 
@@ -838,7 +893,7 @@ router.post('/:id/duplicate', authenticateToken, validateUUID, handleValidationE
   const result = await query(
     `INSERT INTO forms (id, title, description, fields, is_active, created_by)
      VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, created_at, updated_at`,
+    RETURNING id, title, description, fields, is_active, submission_count, max_submission_count, unique_constraint_type, unique_constraint_field, banner_url, show_qr_code, send_email_notification, is_displayed, access_code_required, access_code_single_use, created_at, updated_at`,
     [newFormId, newTitle, form.description, JSON.stringify(form.fields), false, req.user.id] // Set as inactive by default
   );
 

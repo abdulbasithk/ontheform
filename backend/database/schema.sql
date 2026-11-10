@@ -36,9 +36,20 @@ CREATE TABLE forms (
     banner_url TEXT, -- URL to the banner image
     show_qr_code BOOLEAN DEFAULT false, -- Show QR code after submission
     send_email_notification BOOLEAN DEFAULT false, -- Send email notification to submitter
+    access_code_required BOOLEAN NOT NULL DEFAULT false,
+    access_code_single_use BOOLEAN NOT NULL DEFAULT true,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Form access codes table
+CREATE TABLE form_access_codes (
+  form_id UUID NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+  code_hash VARCHAR(64) NOT NULL,
+  used_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (form_id, code_hash)
 );
 
 -- Form submissions table
